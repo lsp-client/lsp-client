@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -44,7 +44,6 @@ from lsp_client.client.lang import LanguageConfig
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 from .extension import (
@@ -139,7 +138,8 @@ class DenoClient(
     """
 
     @override
-    def get_language_config(self) -> LanguageConfig:
+    @classmethod
+    def get_language_config(cls) -> LanguageConfig:
         return LanguageConfig(
             kind=lsp_type.LanguageKind.TypeScript,
             suffixes=[".ts", ".tsx", ".js", ".jsx", ".mjs"],
@@ -158,50 +158,41 @@ class DenoClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for deno with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "deno": {
-                    # Enable deno
-                    "enable": True,
-                    # Enable inlay hints
-                    "inlayHints": {
-                        "parameterNames": {"enabled": "all"},
-                        "parameterTypes": {"enabled": True},
-                        "variableTypes": {"enabled": True},
-                        "propertyDeclarationTypes": {"enabled": True},
-                        "functionLikeReturnTypes": {"enabled": True},
-                        "enumMemberValues": {"enabled": True},
-                    },
-                    # Enable linting
-                    "lint": True,
-                    # Enable unstable features
-                    "unstable": True,
-                    # Enable code lens
-                    "codeLens": {
-                        "implementations": True,
-                        "references": True,
-                        "referencesAllFunctions": True,
-                        "test": True,
-                        "testArgs": ["--allow-all"],
-                    },
-                    # Enable suggestions
-                    "suggest": {
-                        "autoImports": True,
-                        "completeFunctionCalls": True,
-                        "names": True,
-                        "paths": True,
-                        "imports": {
-                            "autoDiscover": True,
-                            "hosts": {
-                                "https://deno.land": True,
-                                "https://esm.sh": True,
-                            },
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://docs.deno.com/runtime/reference/lsp_integration/#configuration
+        """
+        return {
+            "deno": {
+                "enable": True,
+                "unstable": True,
+                "lint": True,
+                "suggest": {
+                    "autoImports": True,
+                    "completeFunctionCalls": True,
+                    "names": True,
+                    "paths": True,
+                    "imports": {
+                        "autoDiscover": True,
+                        "hosts": {
+                            "https://deno.land": True,
+                            "https://esm.sh": True,
                         },
                     },
-                }
+                },
+                "inlayHints": {
+                    "parameterNames": {"enabled": "all"},
+                    "parameterTypes": {"enabled": True},
+                    "variableTypes": {"enabled": True},
+                    "propertyDeclarationTypes": {"enabled": True},
+                    "functionLikeReturnTypes": {"enabled": True},
+                    "enumMemberValues": {"enabled": True},
+                },
+                "codeLens": {
+                    "implementations": True,
+                    "references": True,
+                    "referencesAllFunctions": True,
+                    "test": True,
+                },
             }
-        )
-        return config_map
+        }

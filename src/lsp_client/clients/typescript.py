@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -41,7 +41,6 @@ from lsp_client.clients.base import TypeScriptClientBase
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 TypescriptContainerServer = partial(
@@ -124,59 +123,51 @@ class TypescriptClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for typescript-language-server with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "typescript": {
-                    # Enable inlay hints for TypeScript
-                    "inlayHints": {
-                        "includeInlayParameterNameHints": "all",
-                        "includeInlayParameterNameHintsWhenArgumentMatchesName": True,
-                        "includeInlayFunctionParameterTypeHints": True,
-                        "includeInlayVariableTypeHints": True,
-                        "includeInlayVariableTypeHintsWhenTypeMatchesName": True,
-                        "includeInlayPropertyDeclarationTypeHints": True,
-                        "includeInlayFunctionLikeReturnTypeHints": True,
-                        "includeInlayEnumMemberValueHints": True,
-                    },
-                    # Enable suggestions
-                    "suggest": {
-                        "autoImports": True,
-                        "completeFunctionCalls": True,
-                        "includeCompletionsForModuleExports": True,
-                    },
-                    # Enable preferences
-                    "preferences": {
-                        "includePackageJsonAutoImports": "on",
-                        "importModuleSpecifier": "shortest",
-                    },
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
+        """
+        return {
+            "typescript": {
+                "inlayHints": {
+                    "includeInlayParameterNameHints": "all",
+                    "includeInlayParameterNameHintsWhenArgumentMatchesName": True,
+                    "includeInlayFunctionParameterTypeHints": True,
+                    "includeInlayVariableTypeHints": True,
+                    "includeInlayVariableTypeHintsWhenTypeMatchesName": True,
+                    "includeInlayPropertyDeclarationTypeHints": True,
+                    "includeInlayFunctionLikeReturnTypeHints": True,
+                    "includeInlayEnumMemberValueHints": True,
                 },
-                "javascript": {
-                    # Enable inlay hints for JavaScript
-                    "inlayHints": {
-                        "includeInlayParameterNameHints": "all",
-                        "includeInlayParameterNameHintsWhenArgumentMatchesName": True,
-                        "includeInlayFunctionParameterTypeHints": True,
-                        "includeInlayVariableTypeHints": True,
-                        "includeInlayVariableTypeHintsWhenTypeMatchesName": True,
-                        "includeInlayPropertyDeclarationTypeHints": True,
-                        "includeInlayFunctionLikeReturnTypeHints": True,
-                        "includeInlayEnumMemberValueHints": True,
-                    },
-                    # Enable suggestions
-                    "suggest": {
-                        "autoImports": True,
-                        "completeFunctionCalls": True,
-                        "includeCompletionsForModuleExports": True,
-                    },
-                    # Enable preferences
-                    "preferences": {
-                        "includePackageJsonAutoImports": "on",
-                        "importModuleSpecifier": "shortest",
-                    },
+                "suggest": {
+                    "autoImports": True,
+                    "completeFunctionCalls": True,
+                    "includeCompletionsForModuleExports": True,
                 },
-            }
-        )
-        return config_map
+                "preferences": {
+                    "includePackageJsonAutoImports": "on",
+                    "importModuleSpecifier": "shortest",
+                },
+            },
+            "javascript": {
+                "inlayHints": {
+                    "includeInlayParameterNameHints": "all",
+                    "includeInlayParameterNameHintsWhenArgumentMatchesName": True,
+                    "includeInlayFunctionParameterTypeHints": True,
+                    "includeInlayVariableTypeHints": True,
+                    "includeInlayVariableTypeHintsWhenTypeMatchesName": True,
+                    "includeInlayPropertyDeclarationTypeHints": True,
+                    "includeInlayFunctionLikeReturnTypeHints": True,
+                    "includeInlayEnumMemberValueHints": True,
+                },
+                "suggest": {
+                    "autoImports": True,
+                    "completeFunctionCalls": True,
+                    "includeCompletionsForModuleExports": True,
+                },
+                "preferences": {
+                    "includePackageJsonAutoImports": "on",
+                    "importModuleSpecifier": "shortest",
+                },
+            },
+        }

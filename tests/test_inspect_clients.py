@@ -21,7 +21,7 @@ def has_docker() -> bool:
 
 @pytest.mark.skipif(not has_docker(), reason="Docker not available")
 @pytest.mark.asyncio
-@pytest.mark.parametrize("client_cls", clients)
+@pytest.mark.parametrize("client_cls", clients.values())
 async def test_client_capabilities_match_container(client_cls):
     client = client_cls()
     servers = client.create_default_servers()

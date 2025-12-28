@@ -5,12 +5,12 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from typing import Literal, Self, override
+from typing import Any, Literal, Self, override
 
 import anyio
 import asyncer
 from anyio import AsyncContextManagerMixin
-from attrs import define, field
+from attrs import Factory, define, field
 from loguru import logger
 
 from lsp_client.capability.build import (
@@ -19,7 +19,6 @@ from lsp_client.capability.build import (
 )
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
 from lsp_client.client.buffer import LSPFileBuffer
-from lsp_client.client.lang import LanguageConfig
 from lsp_client.jsonrpc.convert import (
     notification_serialize,
     request_deserialize,
@@ -27,10 +26,7 @@ from lsp_client.jsonrpc.convert import (
     response_deserialize,
     response_serialize,
 )
-from lsp_client.protocol import (
-    CapabilityClientProtocol,
-    CapabilityProtocol,
-)
+from lsp_client.protocol import CapabilityClientProtocol, CapabilityProtocol
 from lsp_client.server import DefaultServers, Server, ServerRuntimeError
 from lsp_client.server.types import ServerRequest
 from lsp_client.utils.channel import Receiver, channel
@@ -64,6 +60,7 @@ class Client(
     _server: Server = field(init=False)
     _workspace: Workspace = field(init=False)
     _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
+    _config: ConfigurationMap = Factory(ConfigurationMap)
 
     async def _iter_candidate_servers(self) -> AsyncGenerator[Server]:
         """
@@ -95,52 +92,24 @@ class Client(
     def get_workspace(self) -> Workspace:
         return self._workspace
 
+    @override
+    def get_config_map(self) -> ConfigurationMap:
+        return self._config
+
     def get_server(self) -> Server:
         return self._server
-
-    @abstractmethod
-    def get_language_config(self) -> LanguageConfig:
-        """Get language-specific configuration for this client."""
 
     @abstractmethod
     def create_default_servers(self) -> DefaultServers:
         """Create default servers for this client."""
 
+    def create_default_config(self) -> dict[str, Any] | None:
+        """Create default configuration map for this client."""
+        return
+
     @abstractmethod
     def check_server_compatibility(self, info: lsp_type.ServerInfo | None) -> None:
         """Check if the available server capabilities are compatible with the client."""
-
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """
-        Create default configuration map for this client.
-
-        This method can be overridden by subclasses to provide default configurations
-        that enable extra features like inlay hints, diagnostics, etc.
-
-        The base implementation returns None, meaning no default configuration.
-        Subclasses that support configuration should override this method to provide
-        sensible defaults that enable commonly-used features.
-
-        Returns:
-            ConfigurationMap with default settings, or None if no defaults are needed.
-
-        Example:
-            Override this method in a client subclass to provide defaults:
-
-            ```python
-            @override
-            def create_default_configuration_map(self) -> ConfigurationMap | None:
-                config_map = ConfigurationMap()
-                config_map.update_global({
-                    "myserver": {
-                        "inlayHints": {"enable": True},
-                        "diagnostics": {"enable": True},
-                    }
-                })
-                return config_map
-            ```
-        """
-        return None
 
     @override
     @asynccontextmanager
@@ -173,7 +142,6 @@ class Client(
                     tg.soonify(self.notify_text_document_closed)(item.file_path)
 
     @override
-    # @retry(stop=tenacity.stop_after_attempt(3), reraise=True)
     async def request[R](
         self,
         req: Request,
@@ -185,7 +153,6 @@ class Client(
             return response_deserialize(raw_resp, schema)
 
     @override
-    # @retry(stop=tenacity.stop_after_attempt(3), reraise=True)
     async def notify(self, msg: Notification) -> None:
         noti = notification_serialize(msg)
         with anyio.fail_after(self.request_timeout):
@@ -279,17 +246,8 @@ class Client(
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
         self._workspace = format_workspace(self._workspace_arg)
 
-        # Initialize default configuration map if the client supports configuration
-        # and no configuration map has been set yet
-        from lsp_client.capability.server_request import WithRespondConfigurationRequest
-
-        if (
-            isinstance(self, WithRespondConfigurationRequest)
-            and self.configuration_map is None
-        ):
-            default_config = self.create_default_configuration_map()
-            if default_config is not None:
-                self.configuration_map = default_config
+        if init_config := self.create_default_config():
+            await self._config.update_global(init_config)
 
         async with (
             asyncer.create_task_group() as tg,

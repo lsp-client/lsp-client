@@ -4,7 +4,7 @@ import shutil
 import sys
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -19,8 +19,10 @@ from lsp_client.capability.request import (
     WithRequestDefinition,
     WithRequestDocumentSymbol,
     WithRequestHover,
+    WithRequestInlayHint,
     WithRequestPullDiagnostic,
     WithRequestReferences,
+    WithRequestSignatureHelp,
     WithRequestTypeDefinition,
     WithRequestWorkspaceSymbol,
 )
@@ -32,6 +34,7 @@ from lsp_client.capability.server_notification import (
 )
 from lsp_client.capability.server_request import (
     WithRespondConfigurationRequest,
+    WithRespondInlayHintRefresh,
     WithRespondShowDocumentRequest,
     WithRespondShowMessageRequest,
     WithRespondWorkspaceFoldersRequest,
@@ -40,7 +43,6 @@ from lsp_client.clients.base import PythonClientBase
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 TyContainerServer = partial(ContainerServer, image="ghcr.io/lsp-client/ty:latest")
@@ -80,8 +82,10 @@ class TyClient(
     WithRequestDefinition,
     WithRequestDocumentSymbol,
     WithRequestHover,
+    WithRequestInlayHint,
     WithRequestPullDiagnostic,
     WithRequestReferences,
+    WithRequestSignatureHelp,
     WithRequestTypeDefinition,
     WithRequestWorkspaceSymbol,
     WithReceiveLogMessage,
@@ -89,6 +93,7 @@ class TyClient(
     WithReceivePublishDiagnostics,
     WithReceiveShowMessage,
     WithRespondConfigurationRequest,
+    WithRespondInlayHintRefresh,
     WithRespondShowDocumentRequest,
     WithRespondShowMessageRequest,
     WithRespondWorkspaceFoldersRequest,
@@ -113,21 +118,8 @@ class TyClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for ty with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "ty": {
-                    # Enable diagnostics
-                    "diagnostics": {
-                        "enable": True,
-                    },
-                    # Enable completion features
-                    "completion": {
-                        "autoImports": True,
-                    },
-                }
-            }
-        )
-        return config_map
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://docs.astral.sh/ty/reference/editor-settings/
+        """
+        return {"ty": {}}

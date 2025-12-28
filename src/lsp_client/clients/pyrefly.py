@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -43,7 +43,6 @@ from lsp_client.clients.base import PythonClientBase
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 PyreflyContainerServer = partial(
@@ -125,27 +124,22 @@ class PyreflyClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for pyrefly with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "pyrefly": {
-                    # Enable inlay hints
-                    "inlayHints": {
-                        "variableTypes": True,
-                        "functionReturnTypes": True,
-                        "parameterTypes": True,
-                    },
-                    # Enable diagnostics
-                    "diagnostics": {
-                        "enable": True,
-                    },
-                    # Enable auto-imports
-                    "completion": {
-                        "autoImports": True,
-                    },
-                }
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://pyrefly.org/en/docs/configuration
+        """
+        return {
+            "pyrefly": {
+                "inlayHints": {
+                    "variableTypes": True,
+                    "functionReturnTypes": True,
+                    "parameterTypes": True,
+                },
+                "diagnostics": {
+                    "enable": True,
+                },
+                "completion": {
+                    "autoImports": True,
+                },
             }
-        )
-        return config_map
+        }

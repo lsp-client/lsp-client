@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -41,7 +41,6 @@ from lsp_client.clients.base import PythonClientBase
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 PyrightContainerServer = partial(
@@ -118,36 +117,24 @@ class PyrightClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for pyright with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "python": {
-                    "analysis": {
-                        # Enable inlay hints
-                        "inlayHints": {
-                            "variableTypes": True,
-                            "functionReturnTypes": True,
-                            "callArgumentNames": True,
-                            "pytestParameters": True,
-                        },
-                        # Enable auto-import completions
-                        "autoImportCompletions": True,
-                        # Enable type checking (default: basic)
-                        "typeCheckingMode": "basic",
-                        # Enable diagnostics
-                        "diagnosticMode": "openFilesOnly",
-                        # Enable auto-search paths
-                        "autoSearchPaths": True,
-                        # Enable indexing
-                        "indexing": True,
-                        # Enable diagnostics for shadowed imports
-                        "diagnosticSeverityOverrides": {
-                            "reportGeneralTypeIssues": "warning",
-                        },
-                    }
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://microsoft.github.io/pyright/#/settings
+        """
+        return {
+            "python": {
+                "analysis": {
+                    "autoImportCompletions": True,
+                    "autoSearchPaths": True,
+                    "diagnosticMode": "openFilesOnly",
+                    "indexing": True,
+                    "typeCheckingMode": "basic",
+                    "inlayHints": {
+                        "variableTypes": True,
+                        "functionReturnTypes": True,
+                        "callArgumentNames": True,
+                        "pytestParameters": True,
+                    },
                 }
             }
-        )
-        return config_map
+        }

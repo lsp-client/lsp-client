@@ -5,6 +5,9 @@ from typing import Any, Protocol, override, runtime_checkable
 
 from loguru import logger
 
+from lsp_client.capability.notification.did_change_configuration import (
+    WithNotifyDidChangeConfiguration,
+)
 from lsp_client.protocol import (
     CapabilityClientProtocol,
     ServerRequestHook,
@@ -27,7 +30,8 @@ class WithRespondConfigurationRequest(
     `workspace/configuration` - https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_configuration
     """
 
-    configuration_map: ConfigurationMap | None = None
+    def create_default_config(self) -> dict[str, Any] | None:
+        return
 
     @override
     @classmethod
@@ -54,14 +58,16 @@ class WithRespondConfigurationRequest(
 
         Default implementation uses `self.configuration_map` if available.
         """
-        if self.configuration_map:
-            return self.configuration_map.get(scope_uri, section)
-        return None
+
+        if not (config := self.get_config_map()):
+            return
+        return config.get(scope_uri, section)
 
     async def _respond_configuration(
         self, params: lsp_type.ConfigurationParams
     ) -> list[Any]:
         logger.debug("Responding to configuration request")
+
         return [
             self.get_configuration(item.scope_uri, item.section)
             for item in params.items
@@ -81,24 +87,17 @@ class WithRespondConfigurationRequest(
     ) -> None:
         super().register_server_request_hooks(registry)
 
-        # Automatically bind change notification if both capabilities are present
-        from lsp_client.capability.notification.did_change_configuration import (
-            WithNotifyDidChangeConfiguration,
-        )
+        # Notify server when configuration changes
+        if isinstance(self, WithNotifyDidChangeConfiguration):
 
-        if self.configuration_map and isinstance(
-            self, WithNotifyDidChangeConfiguration
-        ):
-            # We use a lambda to avoid sync/async issues if the notification
-            # needs to be scheduled on an event loop
-            import asyncer
-
-            def on_config_change(config_map: ConfigurationMap, **kwargs: Any):
+            async def notify_change(config_map: ConfigurationMap) -> None:
                 with logger.contextualize(method="didChangeConfiguration"):
-                    logger.debug("Configuration changed, notifying server")
-                    asyncer.runnify(self.notify_change_configuration)()
+                    logger.debug(
+                        "Configuration changed: {}, notifying server", config_map
+                    )
+                    await self.notify_change_configuration()
 
-            self.configuration_map.on_change(on_config_change)
+            self.get_config_map().on_change(notify_change)
 
         registry.register(
             lsp_type.WORKSPACE_CONFIGURATION,

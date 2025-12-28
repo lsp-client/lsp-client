@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from functools import partial
 from subprocess import CalledProcessError
-from typing import override
+from typing import Any, override
 
 import anyio
 from attrs import define
@@ -44,7 +44,6 @@ from lsp_client.clients.base import RustClientBase
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
-from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import lsp_type
 
 RustAnalyzerContainerServer = partial(
@@ -123,52 +122,43 @@ class RustAnalyzerClient(
         return
 
     @override
-    def create_default_configuration_map(self) -> ConfigurationMap | None:
-        """Create default configuration for rust-analyzer with all features enabled."""
-        config_map = ConfigurationMap()
-        config_map.update_global(
-            {
-                "rust-analyzer": {
-                    # Enable inlay hints for all types
-                    "inlayHints": {
+    def create_default_config(self) -> dict[str, Any] | None:
+        """
+        https://rust-analyzer.github.io/book/configuration.html
+        """
+        return {
+            "rust-analyzer": {
+                "cargo": {
+                    "buildScripts": {"enable": True},
+                    "features": "all",
+                },
+                "checkOnSave": {"enable": True},
+                "completion": {
+                    "autoimport": {"enable": True},
+                    "callable": {"snippets": "fill_arguments"},
+                    "postfix": {"enable": True},
+                },
+                "diagnostics": {
+                    "enable": True,
+                    "experimental": {"enable": True},
+                },
+                "hover": {
+                    "actions": {
                         "enable": True,
-                        "chainingHints": {"enable": True},
-                        "closureReturnTypeHints": {"enable": "always"},
-                        "lifetimeElisionHints": {"enable": "always"},
-                        "parameterHints": {"enable": True},
-                        "reborrowHints": {"enable": "always"},
-                        "renderColons": True,
-                        "typeHints": {"enable": True},
-                    },
-                    # Enable diagnostics
-                    "diagnostics": {
-                        "enable": True,
-                        "experimental": {"enable": True},
-                    },
-                    # Enable completion features
-                    "completion": {
-                        "autoimport": {"enable": True},
-                        "autoself": {"enable": True},
-                        "callable": {"snippets": "fill_arguments"},
-                        "postfix": {"enable": True},
-                        "privateEditable": {"enable": True},
-                    },
-                    # Enable checkOnSave with cargo check
-                    "checkOnSave": {"enable": True},
-                    # Enable code lens
-                    "lens": {
-                        "enable": True,
-                        "run": {"enable": True},
-                        "debug": {"enable": True},
-                        "implementations": {"enable": True},
-                        "references": {
-                            "adt": {"enable": True},
-                            "enumVariant": {"enable": True},
-                            "method": {"enable": True},
-                            "trait": {"enable": True},
-                        },
-                    },
-                }
+                        "references": {"enable": True},
+                    }
+                },
+                "inlayHints": {
+                    "bindingModeHints": {"enable": True},
+                    "closureCaptureHints": {"enable": True},
+                    "chainingHints": {"enable": True},
+                    "closureReturnTypeHints": {"enable": "always"},
+                    "lifetimeElisionHints": {"enable": "always"},
+                    "discriminantHints": {"enable": "always"},
+                    "expressionAdjustmentHints": {"enable": "always"},
+                    "parameterHints": {"enable": True},
+                    "reborrowHints": {"enable": "always"},
+                    "typeHints": {"enable": True},
+                },
             }
-        )
-        return config_map
+        }
