@@ -88,6 +88,25 @@ class Client(
         yield defaults.container
         yield defaults.local
 
+    @asynccontextmanager
+    async def run_server(
+        self,
+    ) -> AsyncGenerator[tuple[Server, Receiver[ServerRequest]]]:
+        async with channel[ServerRequest].create() as (sender, receiver):
+            errors: list[ServerRuntimeError] = []
+            async for candidate in self._iter_candidate_servers():
+                try:
+                    async with candidate.run(self._workspace, sender=sender) as server:  # ty: ignore[invalid-argument-type]
+                        yield server, receiver
+                        return
+                except ServerRuntimeError as e:
+                    logger.debug("Failed to start server {}: {}", candidate, e)
+                    errors.append(e)
+
+            raise ExceptionGroup(
+                f"All servers failed to start for {type(self).__name__}", errors
+            )
+
     @override
     def get_workspace(self) -> Workspace:
         return self._workspace
@@ -221,25 +240,6 @@ class Client(
 
         await self.notify(lsp_type.ExitNotification())
 
-    @asynccontextmanager
-    async def _run_server(
-        self,
-    ) -> AsyncGenerator[tuple[Server, Receiver[ServerRequest]]]:
-        async with channel[ServerRequest].create() as (sender, receiver):
-            errors: list[ServerRuntimeError] = []
-            async for candidate in self._iter_candidate_servers():
-                try:
-                    async with candidate.run(self._workspace, sender=sender) as server:  # ty: ignore[invalid-argument-type]
-                        yield server, receiver
-                        return
-                except ServerRuntimeError as e:
-                    logger.debug("Failed to start server {}: {}", candidate, e)
-                    errors.append(e)
-
-            raise ExceptionGroup(
-                f"All servers failed to start for {type(self).__name__}", errors
-            )
-
     @override
     @asynccontextmanager
     @logger.catch(reraise=True)
@@ -251,7 +251,7 @@ class Client(
 
         async with (
             asyncer.create_task_group() as tg,
-            self._run_server() as (server, receiver),  # ty: ignore[invalid-argument-type]
+            self.run_server() as (server, receiver),  # ty: ignore[invalid-argument-type]
         ):
             self._server = server
 
