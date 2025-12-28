@@ -23,25 +23,19 @@ class LanguageConfig:
     exclude_files: list[str] = Factory(list)
     """Files that indicate a directory should not be considered a project root for this language."""
 
-    def find_project_root(self, file_path: Path) -> Path | None:
-        """Find the project root directory for the given file path.
-
-        Args:
-            file_path (Path): The file path to check.
-        Returns:
-            Path | None: The project root directory if found, otherwise None.
-        """
-
-        if not file_path.is_file():
-            raise ValueError(f"Expected a file path, got: {file_path}")
-
-        if not any(file_path.name.endswith(suffix) for suffix in self.suffixes):
-            return
-
-        for parent in file_path.parents:
-            if any((parent / excl).exists() for excl in self.exclude_files):
+    def _find_project_root(self, dir_path: Path) -> Path | None:
+        for project_path in (dir_path, *dir_path.parents):
+            if any((project_path / excl).exists() for excl in self.exclude_files):
                 return
-            if any((parent / proj).exists() for proj in self.project_files):
-                return parent
+            if any((project_path / proj).exists() for proj in self.project_files):
+                return project_path
 
-        return file_path.parent
+        return dir_path
+
+    def find_project_root(self, path: Path) -> Path | None:
+        if path.is_file():
+            if not any(path.name.endswith(suffix) for suffix in self.suffixes):
+                return
+            path = path.parent
+
+        return self._find_project_root(path)
