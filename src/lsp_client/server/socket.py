@@ -14,7 +14,7 @@ from loguru import logger
 
 from lsp_client.jsonrpc.parse import read_raw_package, write_raw_package
 from lsp_client.jsonrpc.types import RawPackage
-from lsp_client.server.exception import ServerRuntimeError
+from lsp_client.server.error import ServerRuntimeError
 from lsp_client.utils.types import AnyPath
 from lsp_client.utils.workspace import Workspace
 
@@ -69,13 +69,13 @@ class SocketServer(Server):
     @override
     async def send(self, package: RawPackage) -> None:
         if self._stream is None:
-            raise RuntimeError("SocketServer is not running")
+            raise ServerRuntimeError(self, "SocketServer is not running")
         await write_raw_package(self._stream, package)
 
     @override
     async def receive(self) -> RawPackage | None:
         if self._buffered is None:
-            raise RuntimeError("SocketServer is not running")
+            raise ServerRuntimeError(self, "SocketServer is not running")
         try:
             return await read_raw_package(self._buffered)
         except (anyio.EndOfStream, anyio.IncompleteRead, anyio.ClosedResourceError):
