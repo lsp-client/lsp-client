@@ -6,9 +6,9 @@ from typing import Final, Literal
 
 from lsp_client.client.abc import Client
 
+from .basedpyright import BasedpyrightClient
 from .deno.client import DenoClient
 from .gopls import GoplsClient
-from .pyright import PyrightClient
 from .rust_analyzer import RustAnalyzerClient
 from .typescript import TypescriptClient
 
@@ -21,13 +21,13 @@ type Language = Literal[
 ]
 
 GoClient = GoplsClient
-PythonClient = PyrightClient
+PythonClient = BasedpyrightClient
 RustClient = RustAnalyzerClient
 TypeScriptClient = TypescriptClient
 
 lang_clients: Final[dict[Language, type[Client]]] = {
     "go": GoplsClient,
-    "python": PyrightClient,
+    "python": BasedpyrightClient,
     "rust": RustAnalyzerClient,
     "typescript": TypescriptClient,
     "deno": DenoClient,
