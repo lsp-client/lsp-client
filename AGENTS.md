@@ -9,8 +9,7 @@
 
 ## Code Style Guidelines
 
-- Python: 3.12+ required
-- Types: Full type annotations required, use `lsp_client.utils.types.lsp_type` for standard LSP types
+- Types: Full Python 3.12 type annotations required, use `lsp_client.utils.types.lsp_type` for standard LSP types
 - Error handling: Must use concrete exception types
 - Async: Use async/await, `asyncer.TaskGroup` for concurrency
 - Structure: Follow capability-based protocol pattern in `capability/` module
