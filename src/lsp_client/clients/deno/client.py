@@ -41,7 +41,7 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.client.abc import Client
-from lsp_client.client.lang import LanguageConfig
+from lsp_client.protocol.lang import LanguageConfig
 from lsp_client.server import DefaultServers, ServerInstallationError
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer

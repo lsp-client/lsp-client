@@ -83,10 +83,12 @@ class SocketServer(Server):
     async def run(
         self,
         workspace: Workspace,
-        *,
-        sender: Sender[ServerRequest] | None = None,
+        sender: Sender[ServerRequest],
     ) -> AsyncGenerator[Self]:
         self._stream = await self.connect()
 
-        async with self._stream:
+        async with (
+            self._stream,
+            super().run(workspace, sender=sender),
+        ):
             yield self

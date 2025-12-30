@@ -85,8 +85,6 @@ class Server(ABC):
                 resp = await rx.receive()
                 await self.send(resp)
             case {"method": _} as noti:
-                if not sender:
-                    return
                 await sender.send(noti)
 
     async def _dispatch(self, sender: Sender[ServerRequest]) -> None:

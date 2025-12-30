@@ -17,6 +17,8 @@ from lsp_client.capability.server_request import (
 from lsp_client.client.abc import Client
 from lsp_client.jsonrpc.convert import lsp_type, request_serialize, response_deserialize
 from lsp_client.server.abc import Server
+from lsp_client.server.types import ServerRequest
+from lsp_client.utils.channel import channel
 from lsp_client.utils.workspace import DEFAULT_WORKSPACE
 
 
@@ -33,7 +35,10 @@ async def inspect_capabilities(
     if not __debug__:
         raise RuntimeError("inspect_capabilities can only be used in debug mode")
 
-    async with server.run(DEFAULT_WORKSPACE):
+    async with (
+        channel[ServerRequest].create() as (sender, _),
+        server.run(DEFAULT_WORKSPACE, sender=sender),
+    ):
         # send a fake initialize request to get server capabilities
         req = lsp_type.InitializeRequest(
             id="initialize",
@@ -43,7 +48,6 @@ async def inspect_capabilities(
         )
         raw_resp = await server.request(request_serialize(req))
         resp = response_deserialize(raw_resp, lsp_type.InitializeResponse)
-        await server.kill()
 
     server_capabilities = resp.capabilities
 

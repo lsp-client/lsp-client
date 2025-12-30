@@ -11,12 +11,12 @@ from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
 
-from lsp_client.server.types import ServerRequest
 from lsp_client.utils.channel import Sender
 from lsp_client.utils.workspace import Workspace
 
 from .abc import Server
 from .local import LocalServer
+from .types import ServerRequest
 
 
 @define
