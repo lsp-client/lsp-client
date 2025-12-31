@@ -57,6 +57,7 @@ class Client(
     sync_file: bool = True
     request_timeout: float = 5.0
     initialization_options: dict = field(factory=dict)
+    unmanaged: bool = False
 
     _server: Server = field(init=False)
     _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
@@ -122,7 +123,6 @@ class Client(
     def get_server(self) -> Server:
         return self._server
 
-    @classmethod
     @classmethod
     @abstractmethod
     def create_default_servers(cls) -> DefaultServers:
@@ -260,35 +260,40 @@ class Client(
             # since server notification can be sent before `initialize`
             tg.soonify(self._dispatch_server_requests)(receiver)
 
-            client_capabilities = build_client_capabilities(self.__class__)
-            root_workspace = self.get_workspace().get(DEFAULT_WORKSPACE_DIR)
-            root_path = root_workspace.path.as_posix() if root_workspace else None
-            root_uri = root_workspace.uri if root_workspace else None
+            if not self.unmanaged:
+                client_capabilities = build_client_capabilities(self.__class__)
+                root_workspace = self.get_workspace().get(DEFAULT_WORKSPACE_DIR)
+                root_path = root_workspace.path.as_posix() if root_workspace else None
+                root_uri = root_workspace.uri if root_workspace else None
 
-            _ = await self._initialize(
-                lsp_type.InitializeParams(
-                    capabilities=client_capabilities,
-                    process_id=os.getpid(),
-                    client_info=lsp_type.ClientInfo(
-                        name="lsp-lient",
-                        version="1.81.0-insider",
-                    ),
-                    locale="en-us",
-                    # if single workspace root provided,
-                    # set both `root_path` and `root_uri` for compatibility
-                    root_path=root_path,
-                    root_uri=root_uri,
-                    initialization_options=self.initialization_options,
-                    trace=lsp_type.TraceValue.Verbose,
-                    workspace_folders=self._workspace.to_folders(),
+                _ = await self._initialize(
+                    lsp_type.InitializeParams(
+                        capabilities=client_capabilities,
+                        process_id=os.getpid(),
+                        client_info=lsp_type.ClientInfo(
+                            name="lsp-lient",
+                            version="1.81.0-insider",
+                        ),
+                        locale="en-us",
+                        # if single workspace root provided,
+                        # set both `root_path` and `root_uri` for compatibility
+                        root_path=root_path,
+                        root_uri=root_uri,
+                        initialization_options=self.initialization_options,
+                        trace=lsp_type.TraceValue.Verbose,
+                        workspace_folders=self._workspace.to_folders(),
+                    )
                 )
-            )
 
-            if init_config := self.create_default_config():
-                await self._config.update_global(init_config)
+                if init_config := self.create_default_config():
+                    await self._config.update_global(init_config)
 
             try:
                 yield self
             finally:
-                _ = await self._shutdown()
-                await self._exit()
+                if not self.unmanaged:
+                    _ = await self._shutdown()
+                    await self._exit()
+                else:
+                    await self.get_server().kill()
+                    tg.cancel_scope.cancel()
