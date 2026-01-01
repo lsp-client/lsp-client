@@ -32,6 +32,7 @@ dev = [
     "httpx>=0.28.1",
     "aiofiles>=24.1.0",
     "pdoc>=16.0.0",
+    "ty>=0.0.8",
 ]
 
 [build-system]

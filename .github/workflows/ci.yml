@@ -22,6 +22,10 @@ on:
       - ".pre-commit-config.yaml"
       - ".github/workflows/ci.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -50,6 +54,7 @@ jobs:
         run: |
           uv run ruff check
           uv run ruff format --check
+          uv run ty check src
 
       - name: Run tests
         run: uv run pytest

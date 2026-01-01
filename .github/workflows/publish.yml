@@ -5,6 +5,7 @@ on:
     types: [published]
 
 permissions:
+  contents: read
   id-token: write # This is required for trusted publishing
 
 jobs:
@@ -24,7 +25,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Build sdist and wheel
-        run: uv run build
+        run: uv build
       - name: Store the distribution packages
         uses: actions/upload-artifact@v4
         with:
@@ -37,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/lsp-client # Replace with your package name
+      url: https://pypi.org/project/lsp-client/
     steps:
       - name: Download all the dists
         uses: actions/download-artifact@v4

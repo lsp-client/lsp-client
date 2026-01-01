@@ -8,3 +8,8 @@ sync-pyrefly:
 pdoc:
     mkdir -p dist
     uv run pdoc src/lsp_client --output-dir dist --docformat google
+
+lint path='src':
+    uv run ruff check --fix {{path}}
+    uv run ruff format {{path}}
+    uv run ty check {{path}}

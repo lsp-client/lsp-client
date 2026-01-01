@@ -1,6 +1,8 @@
 # LSP Client
 
+[![PyPI version](https://img.shields.io/pypi/v/lsp-client.svg)](https://pypi.org/project/lsp-client/)
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
+[![CI](https://github.com/observerw/lsp-client/actions/workflows/ci.yml/badge.svg)](https://github.com/observerw/lsp-client/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-pdoc-blue)](https://observerw.github.io/lsp-client/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/observerw/lsp-client)
