@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Protocol, Self, final, override
+from typing import Protocol, override
 
 import aioshutil
 import anyio
@@ -12,8 +12,6 @@ from attrs import Factory, define, field
 from loguru import logger
 
 from lsp_client.env import disable_auto_installation
-from lsp_client.server.types import ServerRequest
-from lsp_client.utils.channel import Sender
 from lsp_client.utils.workspace import Workspace
 
 from .abc import Server
@@ -24,7 +22,6 @@ class EnsureInstalledProtocol(Protocol):
     async def __call__(self) -> None: ...
 
 
-@final
 @define
 class LocalServer(Server):
     program: str
@@ -112,11 +109,6 @@ class LocalServer(Server):
 
     @override
     @asynccontextmanager
-    async def run(
-        self, workspace: Workspace, sender: Sender[ServerRequest]
-    ) -> AsyncGenerator[Self]:
-        async with (
-            self.run_process(workspace),
-            super().run(workspace, sender=sender),
-        ):
-            yield self
+    async def manage_resources(self, workspace: Workspace) -> AsyncGenerator[None]:
+        async with self.run_process(workspace):
+            yield

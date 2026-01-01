@@ -4,19 +4,17 @@ import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal, Self, final, override
+from typing import Literal, final, override
 
 import anyio
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
 
-from lsp_client.utils.channel import Sender
 from lsp_client.utils.workspace import Workspace
 
 from .abc import Server
 from .local import LocalServer
-from .types import ServerRequest
 
 
 @define
@@ -212,17 +210,13 @@ class ContainerServer(Server):
         return args
 
     @override
-    @asynccontextmanager
-    async def run(
-        self, workspace: Workspace, sender: Sender[ServerRequest]
-    ) -> AsyncGenerator[Self]:
+    async def setup(self, workspace: Workspace) -> None:
         args = self.format_args(workspace)
         logger.debug("Running docker runtime with command: {}", args)
-
         self._local = LocalServer(program=self.backend, args=args)
 
-        async with (
-            self._local.run_process(workspace),
-            super().run(workspace, sender=sender),
-        ):
-            yield self
+    @override
+    @asynccontextmanager
+    async def manage_resources(self, workspace: Workspace) -> AsyncGenerator[None]:
+        async with self._local.run_process(workspace):
+            yield

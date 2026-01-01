@@ -26,7 +26,7 @@ from lsp_client.utils.channel import Sender
 from lsp_client.utils.workspace import Workspace
 
 
-@define(kw_only=True)
+@define
 class Server(ABC):
     """Base server implementation with JSON-RPC protocol handling."""
 
@@ -45,6 +45,48 @@ class Server(ABC):
     @abstractmethod
     async def check_availability(self) -> None:
         """Check if the server runtime is available."""
+
+    async def setup(self, workspace: Workspace) -> None:
+        """Hook called before starting server resources.
+
+        Use this for initialization logic that doesn't require async context managers.
+        Default implementation does nothing.
+        """
+
+        return
+
+    @asynccontextmanager
+    async def manage_resources(self, workspace: Workspace) -> AsyncGenerator[None]:
+        """Hook for managing server-specific resources with lifecycle.
+
+        This is called within an async context manager, allowing subclasses to:
+        - Start processes, connect sockets, etc. (on entry)
+        - Clean up resources automatically (on exit)
+
+        Default implementation does nothing. Override this in subclasses to
+        setup server runtime (e.g., start process, connect socket).
+        """
+        yield
+
+    async def on_started(
+        self, workspace: Workspace, sender: Sender[ServerRequest]
+    ) -> None:
+        """Hook called after server resources are ready and dispatch loop is starting.
+
+        Use this for post-startup initialization that needs access to the sender.
+        Default implementation does nothing.
+        """
+
+        return
+
+    async def on_shutdown(self) -> None:
+        """Hook called before server resources are cleaned up.
+
+        Use this for graceful shutdown logic before resource cleanup.
+        Default implementation does nothing.
+        """
+
+        return
 
     @cached_property
     def _buffered_receive_stream(self) -> BufferedByteReceiveStream:
@@ -98,6 +140,16 @@ class Server(ABC):
     async def run(
         self, workspace: Workspace, sender: Sender[ServerRequest]
     ) -> AsyncGenerator[Self]:
-        async with asyncer.create_task_group() as tg:
+        await self.setup(workspace)
+
+        async with (
+            self.manage_resources(workspace),
+            asyncer.create_task_group() as tg,
+        ):
+            await self.on_started(workspace, sender)
             tg.soonify(self._dispatch)(sender)
-            yield self
+
+            try:
+                yield self
+            finally:
+                await self.on_shutdown()

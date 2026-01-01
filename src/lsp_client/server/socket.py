@@ -3,7 +3,7 @@ from __future__ import annotations
 import platform
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Self, final, override
+from typing import final, override
 
 import anyio
 import tenacity
@@ -12,8 +12,6 @@ from attrs import define, field
 from loguru import logger
 
 from lsp_client.server.error import ServerRuntimeError
-from lsp_client.server.types import ServerRequest
-from lsp_client.utils.channel import Sender
 from lsp_client.utils.types import AnyPath
 from lsp_client.utils.workspace import Workspace
 
@@ -80,13 +78,7 @@ class SocketServer(Server):
 
     @override
     @asynccontextmanager
-    async def run(
-        self, workspace: Workspace, sender: Sender[ServerRequest]
-    ) -> AsyncGenerator[Self]:
+    async def manage_resources(self, workspace: Workspace) -> AsyncGenerator[None]:
         self._stream = await self.connect()
-
-        async with (
-            self._stream,
-            super().run(workspace, sender=sender),
-        ):
-            yield self
+        async with self._stream:
+            yield
