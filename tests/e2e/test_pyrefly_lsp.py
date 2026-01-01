@@ -7,9 +7,11 @@ import pytest
 from lsp_client.clients.pyrefly import PyreflyClient
 from tests.framework.lsp import lsp_interaction_context
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures" / "pyrefly_lsp"
+# Fixtures are in the parent fixtures directory
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "pyrefly_lsp"
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_pyrefly_go_to_def_relative():
     # References: references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/definition.rs:165
@@ -28,6 +30,7 @@ async def test_pyrefly_go_to_def_relative():
         assertion.expect_definition("bar.py", 7, 4, 7, 7)
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_pyrefly_hover_primitive():
     # References: references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/test_files/primitive_type_test.py

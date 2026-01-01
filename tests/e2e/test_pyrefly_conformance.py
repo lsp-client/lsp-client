@@ -7,9 +7,11 @@ import pytest
 from lsp_client.clients.pyrefly import PyreflyClient
 from tests.framework.lsp import lsp_interaction_context
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures" / "pyrefly"
+# Fixtures are in the parent fixtures directory
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "pyrefly"
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_pyrefly_conformance_protocols():
     # Use the linked conformance tests directory as workspace
@@ -30,6 +32,7 @@ async def test_pyrefly_conformance_protocols():
         assertion.expect_content("SupportsClose")
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_pyrefly_conformance_generics():
     async with lsp_interaction_context(

@@ -21,6 +21,7 @@ def has_docker() -> bool:
 
 @pytest.mark.skip(reason="Failing due to race conditions in inspect_capabilities")
 @pytest.mark.skipif(not has_docker(), reason="Docker not available")
+@pytest.mark.e2e
 @pytest.mark.asyncio
 @pytest.mark.parametrize("client_cls", clients.values())
 async def test_client_capabilities_match_container(client_cls):
