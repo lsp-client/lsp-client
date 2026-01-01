@@ -41,6 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup test fixtures
+        run: bash scripts/setup_fixtures.sh
+
       - name: Install uv and set Python version
         uses: astral-sh/setup-uv@v7
         with:
@@ -58,3 +61,4 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
+

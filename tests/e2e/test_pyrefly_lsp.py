@@ -12,6 +12,7 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "pyrefly_lsp"
 
 
 @pytest.mark.e2e
+@pytest.mark.requires_fixtures
 @pytest.mark.asyncio
 async def test_pyrefly_go_to_def_relative():
     # References: references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/definition.rs:165
@@ -31,6 +32,7 @@ async def test_pyrefly_go_to_def_relative():
 
 
 @pytest.mark.e2e
+@pytest.mark.requires_fixtures
 @pytest.mark.asyncio
 async def test_pyrefly_hover_primitive():
     # References: references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/test_files/primitive_type_test.py

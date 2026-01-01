@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from lsp_client.client.abc import Client
@@ -153,3 +155,40 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_server: mark as requiring server installation"
     )
+    config.addinivalue_line(
+        "markers", "requires_fixtures: mark as requiring pyrefly fixtures"
+    )
+
+
+# Fixture availability checks
+
+
+@pytest.fixture(scope="session")
+def pyrefly_fixtures_available() -> bool:
+    """Check if pyrefly fixtures are available."""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    pyrefly_dir = fixtures_dir / "pyrefly"
+    pyrefly_lsp_dir = fixtures_dir / "pyrefly_lsp"
+
+    return (
+        pyrefly_dir.exists()
+        and pyrefly_dir.is_dir()
+        and pyrefly_lsp_dir.exists()
+        and pyrefly_lsp_dir.is_dir()
+    )
+
+
+def pytest_runtest_setup(item):
+    """Skip tests that require fixtures if they are not available."""
+    if "requires_fixtures" in [mark.name for mark in item.iter_markers()]:
+        fixtures_dir = Path(__file__).parent / "fixtures"
+        pyrefly_dir = fixtures_dir / "pyrefly"
+        pyrefly_lsp_dir = fixtures_dir / "pyrefly_lsp"
+
+        if not (
+            pyrefly_dir.exists()
+            and pyrefly_dir.is_dir()
+            and pyrefly_lsp_dir.exists()
+            and pyrefly_lsp_dir.is_dir()
+        ):
+            pytest.skip("Pyrefly fixtures not available")

@@ -81,10 +81,21 @@ async with lsp_interaction_context(PyreflyClient) as interaction:
 
 ## Fixtures & Links
 
-- `tests/fixtures/pyrefly`: Symlinked to `references/pyrefly/conformance/third_party`.
-- `tests/fixtures/pyrefly_lsp`: Symlinked to `references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/test_files`.
+To run the full test suite including conformance tests, you need to set up the pyrefly test fixtures:
 
-These links allow the framework to use actual test files from the server's own repository, ensuring parity between client and server expectations.
+```bash
+bash scripts/setup_fixtures.sh
+```
+
+This script will:
+1. Clone the pyrefly repository to `references/pyrefly`
+2. Create symbolic links:
+   - `tests/fixtures/pyrefly` → `references/pyrefly/conformance/third_party`
+   - `tests/fixtures/pyrefly_lsp` → `references/pyrefly/pyrefly/lib/test/lsp/lsp_interaction/test_files`
+
+These links allow the framework to use actual test files from the pyrefly server's own repository, ensuring parity between client and server expectations.
+
+**Note**: Tests that require these fixtures are marked with `@pytest.mark.requires_fixtures` and will be automatically skipped if the fixtures are not available.
 
 ## Test Markers
 
@@ -95,6 +106,7 @@ These links allow the framework to use actual test files from the server's own r
 - `@pytest.mark.performance` - Performance tests
 - `@pytest.mark.slow` - Slow-running tests
 - `@pytest.mark.requires_server` - Requires server installation
+- `@pytest.mark.requires_fixtures` - Requires pyrefly fixtures
 - `@pytest.mark.asyncio` - Async tests
 
 ## Running Tests
