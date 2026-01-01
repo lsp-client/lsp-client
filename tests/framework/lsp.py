@@ -8,8 +8,11 @@ from typing import Any
 
 import attrs
 
+from lsp_client.capability.request.completion import WithRequestCompletion
 from lsp_client.capability.request.definition import WithRequestDefinition
+from lsp_client.capability.request.document_symbol import WithRequestDocumentSymbol
 from lsp_client.capability.request.hover import WithRequestHover
+from lsp_client.capability.request.reference import WithRequestReferences
 from lsp_client.client.abc import Client
 from lsp_client.utils.types import Position, Range, lsp_type
 
@@ -51,6 +54,36 @@ class LspInteraction[C: Client]:
             position=Position(line=line, character=column),
         )
         return HoverAssertion(self, resp)
+
+    async def request_completion(
+        self, relative_path: str, line: int, column: int
+    ) -> CompletionAssertion:
+        assert isinstance(self.client, WithRequestCompletion)
+        path = self.full_path(relative_path)
+        resp = await self.client.request_completion(
+            file_path=path,
+            position=Position(line=line, character=column),
+        )
+        return CompletionAssertion(self, resp)
+
+    async def request_references(
+        self, relative_path: str, line: int, column: int
+    ) -> ReferencesAssertion:
+        assert isinstance(self.client, WithRequestReferences)
+        path = self.full_path(relative_path)
+        resp = await self.client.request_references(
+            file_path=path,
+            position=Position(line=line, character=column),
+        )
+        return ReferencesAssertion(self, resp)
+
+    async def request_document_symbols(
+        self, relative_path: str
+    ) -> DocumentSymbolsAssertion:
+        assert isinstance(self.client, WithRequestDocumentSymbol)
+        path = self.full_path(relative_path)
+        resp = await self.client.request_document_symbol(file_path=path)
+        return DocumentSymbolsAssertion(self, resp)
 
 
 @attrs.define
@@ -124,6 +157,78 @@ class HoverAssertion:
         assert pattern in self.response.value, (
             f"Expected '{pattern}' in hover content, got '{self.response.value}'"
         )
+
+
+@attrs.define
+class CompletionAssertion:
+    interaction: LspInteraction[Any]
+    response: Sequence[lsp_type.CompletionItem]
+
+    def expect_label(self, label: str) -> None:
+        labels = [item.label for item in self.response]
+        assert label in labels, (
+            f"Expected completion label '{label}' not found in {labels}"
+        )
+
+
+@attrs.define
+class ReferencesAssertion:
+    interaction: LspInteraction[Any]
+    response: Sequence[lsp_type.Location] | None
+
+    def expect_reference(
+        self,
+        relative_path: str,
+        start_line: int,
+        start_col: int,
+        end_line: int,
+        end_col: int,
+    ) -> None:
+        assert self.response is not None, "References response is None"
+        expected_path = self.interaction.full_path(relative_path)
+        expected_range = Range(
+            start=Position(line=start_line, character=start_col),
+            end=Position(line=end_line, character=end_col),
+        )
+
+        found = False
+        for loc in self.response:
+            actual_path = self.interaction.client.from_uri(loc.uri)
+            if (
+                Path(actual_path).resolve() == expected_path
+                and loc.range == expected_range
+            ):
+                found = True
+                break
+        assert found, f"Reference not found at {expected_path}:{expected_range}"
+
+
+@attrs.define
+class DocumentSymbolsAssertion:
+    interaction: LspInteraction[Any]
+    response: (
+        Sequence[lsp_type.SymbolInformation] | Sequence[lsp_type.DocumentSymbol] | None
+    )
+
+    def expect_symbol(self, name: str, kind: lsp_type.SymbolKind | None = None) -> None:
+        assert self.response is not None, "Document symbols response is None"
+
+        def check_symbols(
+            symbols: Sequence[lsp_type.SymbolInformation]
+            | Sequence[lsp_type.DocumentSymbol],
+        ) -> bool:
+            for sym in symbols:
+                if isinstance(sym, lsp_type.DocumentSymbol):
+                    if sym.name == name and (kind is None or sym.kind == kind):
+                        return True
+                    if sym.children and check_symbols(sym.children):
+                        return True
+                elif isinstance(sym, lsp_type.SymbolInformation):
+                    if sym.name == name and (kind is None or sym.kind == kind):
+                        return True
+            return False
+
+        assert check_symbols(self.response), f"Symbol '{name}' not found"
 
 
 @asynccontextmanager
