@@ -8,25 +8,28 @@ To create a new release:
 
 1. **Update the version** in `pyproject.toml`:
    ```toml
-   version = "0.2.0"
+   version = "0.3.0"
    ```
 
 2. **Commit and push** your changes:
    ```bash
    git add pyproject.toml
-   git commit -m "chore: bump version to 0.2.0"
+   git commit -m "chore: bump version to 0.3.0"
    git push
    ```
 
 3. **Create and push a version tag**:
    ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
+   git tag v0.3.0
+   git push origin v0.3.0
    ```
 
 4. **Automatic actions**:
-   - The `release.yml` workflow will automatically create a GitHub release with auto-generated release notes
-   - The `publish.yml` workflow will trigger and publish the package to PyPI
+   - The `release.yml` workflow will automatically:
+     - Create a GitHub release with auto-generated release notes
+     - Build distribution packages (wheel and sdist)
+     - Publish the package to PyPI via trusted publishing
+   - All in a single workflow run!
 
 ## Release Notes
 
@@ -49,6 +52,19 @@ Label your pull requests to categorize them in release notes:
 To exclude a PR from release notes, add one of these labels:
 - `ignore-for-release`
 - `dependencies`
+
+## PyPI Publishing
+
+The package is automatically published to PyPI using [trusted publishing](https://docs.pypi.org/trusted-publishers/). 
+
+### Setup Requirements
+
+1. **PyPI Project**: Ensure the project exists on PyPI (first release must be done manually)
+2. **Trusted Publisher**: Configure on PyPI at `https://pypi.org/manage/project/lsp-client/settings/publishing/`
+   - Workflow name: `release.yml`
+   - Environment name: `pypi`
+
+No API tokens or passwords are needed with trusted publishing!
 
 ## Manual Release (Alternative)
 
