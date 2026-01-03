@@ -13,7 +13,7 @@ from loguru import logger
 
 from lsp_client.utils.workspace import Workspace
 
-from .abc import Server
+from .abc import StreamServer
 from .local import LocalServer
 
 
@@ -122,7 +122,7 @@ def _format_mount(mount: Mount) -> str:
 
 @final
 @define
-class ContainerServer(Server):
+class ContainerServer(StreamServer):
     """Runtime for container backend, e.g. `docker` or `podman`."""
 
     image: str

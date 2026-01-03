@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .abc import Server
+from .abc import Server, StreamServer
 from .container import ContainerServer
 from .default import DefaultServers
 from .error import ServerError, ServerInstallationError, ServerRuntimeError
@@ -18,4 +18,5 @@ __all__ = [
     "ServerRuntimeError",
     "ServerType",
     "SocketServer",
+    "StreamServer",
 ]

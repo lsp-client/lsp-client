@@ -8,13 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import define, field
 
-from lsp_client.server.abc import Server
+from lsp_client.server.abc import StreamServer
 from lsp_client.utils.channel import Sender
 from lsp_client.utils.workspace import Workspace
 
 
 @define
-class MockServer(Server):
+class MockServer(StreamServer):
     """A mock server for testing without actual LSP server."""
 
     _send_stream: MagicMock = field(factory=MagicMock)

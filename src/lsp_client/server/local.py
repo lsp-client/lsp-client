@@ -14,7 +14,7 @@ from loguru import logger
 from lsp_client.env import disable_auto_installation
 from lsp_client.utils.workspace import Workspace
 
-from .abc import Server
+from .abc import StreamServer
 from .error import ServerRuntimeError
 
 
@@ -23,7 +23,7 @@ class EnsureInstalledProtocol(Protocol):
 
 
 @define
-class LocalServer(Server):
+class LocalServer(StreamServer):
     program: str
     args: Sequence[str] = Factory(list)
 

@@ -15,7 +15,7 @@ from lsp_client.server.error import ServerRuntimeError
 from lsp_client.utils.types import AnyPath
 from lsp_client.utils.workspace import Workspace
 
-from .abc import Server
+from .abc import StreamServer
 
 type TCPSocket = tuple[IPAddressType, int]
 """(host, port)"""
@@ -25,7 +25,7 @@ type UnixSocket = AnyPath
 
 @final
 @define
-class SocketServer(Server):
+class SocketServer(StreamServer):
     """Runtime for socket backend, e.g. connecting to a remote LSP server via TCP or Unix socket."""
 
     connection: TCPSocket | UnixSocket
