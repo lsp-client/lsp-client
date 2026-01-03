@@ -9,6 +9,17 @@ from lsp_client.utils.types import lsp_type
 
 
 class PythonClientBase(Client, ABC):
+    """
+    Base class for Python language server clients.
+
+    Provides Python-specific configuration including file extensions (.py, .pyi)
+    and common project configuration files (pyproject.toml, setup.py, etc.).
+
+    Subclasses must implement:
+        create_default_servers(): Create server runtime instances
+        check_server_compatibility(): Verify server version compatibility
+    """
+
     @override
     @classmethod
     def get_language_config(cls) -> LanguageConfig:
@@ -26,6 +37,17 @@ class PythonClientBase(Client, ABC):
 
 
 class RustClientBase(Client, ABC):
+    """
+    Base class for Rust language server clients.
+
+    Provides Rust-specific configuration including file extension (.rs)
+    and project configuration (Cargo.toml).
+
+    Subclasses must implement:
+        create_default_servers(): Create server runtime instances
+        check_server_compatibility(): Verify server version compatibility
+    """
+
     @override
     @classmethod
     def get_language_config(cls) -> LanguageConfig:
@@ -37,6 +59,17 @@ class RustClientBase(Client, ABC):
 
 
 class GoClientBase(Client, ABC):
+    """
+    Base class for Go language server clients.
+
+    Provides Go-specific configuration including file extension (.go)
+    and project configuration (go.mod).
+
+    Subclasses must implement:
+        create_default_servers(): Create server runtime instances
+        check_server_compatibility(): Verify server version compatibility
+    """
+
     @override
     @classmethod
     def get_language_config(cls) -> LanguageConfig:
@@ -48,6 +81,18 @@ class GoClientBase(Client, ABC):
 
 
 class TypeScriptClientBase(Client, ABC):
+    """
+    Base class for TypeScript/JavaScript language server clients.
+
+    Provides TypeScript-specific configuration including file extensions
+    (.ts, .tsx, .js, .jsx, .mjs, .cjs) and project configuration
+    (package.json, tsconfig.json, jsconfig.json).
+
+    Subclasses must implement:
+        create_default_servers(): Create server runtime instances
+        check_server_compatibility(): Verify server version compatibility
+    """
+
     @override
     @classmethod
     def get_language_config(cls) -> LanguageConfig:

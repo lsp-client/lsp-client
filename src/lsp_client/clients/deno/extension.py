@@ -60,6 +60,21 @@ class WithRequestDenoCache(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno cache operations.
+
+    Provides methods for caching dependencies in Deno's cache.
+
+    Methods:
+        request_deno_cache: Cache dependencies for a document
+
+    Example:
+        class DenoClient(WithRequestDenoCache, ...):
+            ...
+        client = DenoClient()
+        await client.request_deno_cache("main.ts", ["import.ts"])
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -92,6 +107,21 @@ class WithRequestDenoPerformance(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno performance metrics.
+
+    Provides methods for querying Deno runtime performance information.
+
+    Methods:
+        request_deno_performance: Get performance metrics
+
+    Example:
+        class DenoClient(WithRequestDenoPerformance, ...):
+            ...
+        client = DenoClient()
+        metrics = await client.request_deno_performance()
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -111,6 +141,21 @@ class WithRequestDenoReloadImportRegistries(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno import registry reloading.
+
+    Provides methods for refreshing Deno's import registry cache.
+
+    Methods:
+        request_deno_reload_import_registries: Reload import registry caches
+
+    Example:
+        class DenoClient(WithRequestDenoReloadImportRegistries, ...):
+            ...
+        client = DenoClient()
+        await client.request_deno_reload_import_registries()
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -130,6 +175,22 @@ class WithRequestDenoVirtualTextDocument(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno virtual text documents.
+
+    Provides methods for opening special virtual documents in Deno,
+    such as inline JSDoc views or other generated content.
+
+    Methods:
+        request_deno_virtual_text_document: Open a virtual text document
+
+    Example:
+        class DenoClient(WithRequestDenoVirtualTextDocument, ...):
+            ...
+        client = DenoClient()
+        content = await client.request_deno_virtual_text_document("deno:/asset:///...")
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -157,6 +218,21 @@ class WithRequestDenoTask(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno task execution.
+
+    Provides methods for running Deno tasks defined in deno.json.
+
+    Methods:
+        request_deno_task: Execute a Deno task
+
+    Example:
+        class DenoClient(WithRequestDenoTask, ...):
+            ...
+        client = DenoClient()
+        results = await client.request_deno_task()
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -177,6 +253,23 @@ class WithRequestDenoTestRun(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for Deno test execution.
+
+    Provides methods for running Deno tests. This is an experimental capability
+    that requires the testingApi feature flag.
+
+    Methods:
+        request_deno_test_run: Start a test run
+
+    Example:
+        class DenoClient(WithRequestDenoTestRun, ...):
+            ...
+        client = DenoClient()
+        params = DenoTestRunRequestParams(id=1, kind="run")
+        result = await client.request_deno_test_run(params)
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -207,6 +300,21 @@ class WithRequestDenoTestRunCancel(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for cancelling Deno test runs.
+
+    Provides methods for cancelling running Deno tests.
+
+    Methods:
+        request_deno_test_run_cancel: Cancel a running test
+
+    Example:
+        class DenoClient(WithRequestDenoTestRunCancel, ...):
+            ...
+        client = DenoClient()
+        await client.request_deno_test_run_cancel(test_run_id=1)
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -232,6 +340,20 @@ class WithReceiveDenoRegistryStatus(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for receiving Deno registry status notifications.
+
+    Provides handlers for import registry state changes from Deno.
+
+    Methods:
+        receive_deno_registry_state: Handle registry status notifications
+
+    Example:
+        class DenoClient(WithReceiveDenoRegistryStatus, ...):
+            async def receive_deno_registry_state(self, noti):
+                print(f"Registry suggestions: {noti.params.suggestions}")
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -263,6 +385,21 @@ class WithReceiveDenoTestModule(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for receiving Deno test module notifications.
+
+    Provides handlers for test discovery notifications from Deno.
+
+    Methods:
+        receive_deno_test_module: Handle test module discovery
+
+    Example:
+        class DenoClient(WithReceiveDenoTestModule, ...):
+            async def receive_deno_test_module(self, noti):
+                for test in noti.params.tests:
+                    print(f"Found test: {test.label}")
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -292,6 +429,20 @@ class WithReceiveDenoTestModuleDelete(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for receiving Deno test module deletion notifications.
+
+    Provides handlers for test removal notifications from Deno.
+
+    Methods:
+        receive_deno_test_module_delete: Handle test module removal
+
+    Example:
+        class DenoClient(WithReceiveDenoTestModuleDelete, ...):
+            async def receive_deno_test_module_delete(self, noti):
+                print(f"Tests removed from: {noti.params.text_document.uri}")
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:
@@ -323,6 +474,21 @@ class WithReceiveDenoTestRunProgress(
     CapabilityClientProtocol,
     Protocol,
 ):
+    """
+    Capability protocol for receiving Deno test run progress notifications.
+
+    Provides handlers for test execution progress updates from Deno.
+
+    Methods:
+        receive_deno_test_run_progress: Handle test progress updates
+
+    Example:
+        class DenoClient(WithReceiveDenoTestRunProgress, ...):
+            async def receive_deno_test_run_progress(self, noti):
+                msg = noti.params.message
+                print(f"Test run {noti.params.id}: {msg.type}")
+    """
+
     @override
     @classmethod
     def iter_methods(cls) -> Iterator[str]:

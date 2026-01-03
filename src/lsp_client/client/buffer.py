@@ -14,6 +14,28 @@ from lsp_client.utils.workspace import from_local_uri
 
 @frozen
 class LSPFileBufferItem:
+    """
+    Represents an open file buffer in the LSP client.
+
+    Stores file content and metadata for files being synchronized with
+    the language server. Uses reference counting to track multiple opens
+    of the same file.
+
+    Attributes:
+        file_uri: The URI of the file
+        file_content: Raw byte content of the file
+
+    Properties:
+        file_path: Local filesystem Path derived from the URI
+        content: Decoded UTF-8 string content
+        version: Current document version (always 0 if text editing not supported)
+
+    Example:
+        item = LSPFileBufferItem(file_uri="file:///test.py", file_content=b"print('hello')")
+        print(item.content)  # "print('hello')"
+        print(item.file_path)  # PosixPath('/test.py')
+    """
+
     file_uri: str
     file_content: bytes
 
@@ -33,6 +55,28 @@ class LSPFileBufferItem:
 
 @define
 class LSPFileBuffer:
+    """
+    Manages file buffers for LSP document synchronization.
+
+    Provides efficient opening and closing of multiple files with reference
+    counting support. Files are cached in memory and synchronized with the
+    language server through notifications.
+
+    The buffer maintains a lookup dictionary and reference counter for each
+    open file, ensuring proper cleanup when files are closed multiple times.
+
+    Attributes:
+        _lookup: Maps file URIs to their buffer items
+        _ref_count: Tracks how many times each file is open
+
+    Example:
+        buffer = LSPFileBuffer()
+        items = await buffer.open(["file:///test.py", "file:///lib.py"])
+        # Files are now tracked
+        closed = buffer.close(["file:///test.py"])
+        # Files with ref_count 0 are removed from lookup
+    """
+
     _lookup: dict[str, LSPFileBufferItem] = Factory(dict)
     _ref_count: Counter[str] = Factory(Counter)
 

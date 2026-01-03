@@ -50,6 +50,28 @@ class Client(
     AsyncContextManagerMixin,
     ABC,
 ):
+    """
+    Abstract base class for LSP clients.
+
+    Provides core functionality for managing Language Server Protocol clients,
+    including server lifecycle management, file synchronization, and request/notification
+    handling. Subclasses must implement server creation and compatibility checking.
+
+    Inherits from:
+        WithNotifyTextDocumentSynchronize: Handles text document synchronization
+        CapabilityClientProtocol: Defines LSP operation interface
+        AsyncContextManagerMixin: Provides async context management
+        ABC: Abstract base class for inheritance
+
+    Attributes:
+        _server_arg: Server instance, 'container', or 'local' for runtime selection
+        _workspace_arg: Workspace directory or configuration
+        sync_file: Whether to sync file contents with the server
+        request_timeout: Timeout in seconds for JSON-RPC requests
+        initialization_options: Custom initialization options for the server
+        unmanaged: If True, skip automatic lifecycle management
+    """
+
     _server_arg: Server | Literal["container", "local"] | None = field(
         alias="server", default=None
     )

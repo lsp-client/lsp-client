@@ -14,12 +14,42 @@ from .uri import from_local_uri
 
 @attrs.define
 class WorkspaceFolder(lsp_type.WorkspaceFolder):
+    """
+    Represents a workspace folder in the LSP protocol.
+
+    Extends the base LSP WorkspaceFolder with additional properties for
+    working with file paths. Provides a cached property for converting
+    the URI to a local filesystem path.
+
+    Attributes:
+        uri: The URI of the workspace folder
+        name: The name of the workspace folder
+
+    Properties:
+        path: Returns the local filesystem Path for this workspace folder
+    """
+
     @cached_property
     def path(self) -> Path:
         return from_local_uri(self.uri)
 
 
 class Workspace(dict[str, WorkspaceFolder]):
+    """
+    A dictionary mapping workspace folder names to their configurations.
+
+    Provides workspace management functionality for LSP clients, supporting
+    multiple workspace folders. Inherits from dict for standard dictionary
+    operations while providing LSP-specific helper methods.
+
+    Example:
+        workspace = Workspace({
+            "root": WorkspaceFolder(uri="file:///project", name="root"),
+            "lib": WorkspaceFolder(uri="file:///project/lib", name="lib")
+        })
+        folders = workspace.to_folders()  # Returns list of WorkspaceFolder
+    """
+
     def to_folders(self) -> list[WorkspaceFolder]:
         return list(self.values())
 

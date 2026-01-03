@@ -24,6 +24,27 @@ class EnsureInstalledProtocol(Protocol):
 
 @define
 class LocalServer(StreamServer):
+    """
+    Server implementation that runs LSP server as a local subprocess.
+
+    Manages the lifecycle of a Language Server Protocol server process running
+    locally. Handles process creation, stdin/stdout communication, and graceful
+    shutdown with timeout support.
+
+    Attributes:
+        program: Path or name of the server executable
+        args: Command-line arguments passed to the server
+        cwd: Working directory for the server process
+        env: Environment variables for the subprocess
+        shutdown_timeout: Maximum time in seconds to wait for graceful shutdown
+        ensure_installed: Optional callback to install the server if not found
+
+    Example:
+        server = LocalServer(program="pyright", args=["--stdio"])
+        async with server.run(workspace):
+            # server is running
+    """
+
     program: str
     args: Sequence[str] = Factory(list)
 
