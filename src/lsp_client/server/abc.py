@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import cached_property
-from typing import Self
+from typing import Self, override
 
 import anyio
 import asyncer
@@ -28,9 +28,49 @@ from lsp_client.utils.workspace import Workspace
 
 @define
 class Server(ABC):
-    """Base server implementation with JSON-RPC protocol handling."""
+    """Abstract base class for language server runtimes.
+
+    This class defines the high-level contract for communicating with a
+    language server: checking availability, sending requests and
+    notifications, managing the server lifecycle, and running it within a
+    workspace context.
+
+    Unlike :class:`StreamServer`, which provides a concrete implementation
+    based on byte streams and JSON-RPC protocol handling, implementations of
+    :class:`Server` are free to choose how the underlying server process or
+    transport is managed, as long as they honor this interface.
+    """
+    @abstractmethod
+    async def check_availability(self) -> None:
+        """Check if the server runtime is available."""
+
+    @abstractmethod
+    async def request(self, request: RawRequest) -> RawResponsePackage:
+        """Send a request to the server and receive response or error."""
+
+    @abstractmethod
+    async def notify(self, notification: RawNotification) -> None:
+        """Send a notification to the server."""
+
+    @abstractmethod
+    async def kill(self) -> None:
+        """Terminate the server runtime."""
+
+    @abstractmethod
+    @asynccontextmanager
+    def run(
+        self,
+        workspace: Workspace,
+        sender: Sender[ServerRequest],
+    ) -> AsyncGenerator[Self]: ...
+
+
+@define
+class StreamServer(Server):
+    """Server based on byte streams with JSON-RPC protocol handling."""
 
     _resp_table: ResponseTable = field(factory=ResponseTable, init=False)
+    """Dispatch response by response ID."""
 
     @property
     @abstractmethod
@@ -41,10 +81,6 @@ class Server(ABC):
     @abstractmethod
     def receive_stream(self) -> AnyByteReceiveStream:
         """Stream for receiving data from the server."""
-
-    @abstractmethod
-    async def check_availability(self) -> None:
-        """Check if the server runtime is available."""
 
     async def setup(self, workspace: Workspace) -> None:
         """Hook called before starting server resources.
@@ -128,14 +164,17 @@ class Server(ABC):
             while package := await self.receive():
                 tg.soonify(self._handle_package)(sender, package)
 
+    @override
     async def request(self, request: RawRequest) -> RawResponsePackage:
         rx = self._resp_table.reserve(request["id"])
         await self.send(request)
         return await rx.receive()
 
+    @override
     async def notify(self, notification: RawNotification) -> None:
         await self.send(notification)
 
+    @override
     @asynccontextmanager
     async def run(
         self, workspace: Workspace, sender: Sender[ServerRequest]

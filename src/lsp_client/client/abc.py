@@ -28,7 +28,8 @@ from lsp_client.jsonrpc.convert import (
     response_serialize,
 )
 from lsp_client.protocol import CapabilityClientProtocol, CapabilityProtocol
-from lsp_client.server import DefaultServers, Server, ServerRuntimeError
+from lsp_client.server import DefaultServers, ServerRuntimeError
+from lsp_client.server.abc import Server
 from lsp_client.server.types import ServerRequest
 from lsp_client.utils.channel import Receiver, channel
 from lsp_client.utils.config import ConfigurationMap

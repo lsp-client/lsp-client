@@ -36,7 +36,7 @@ from __future__ import annotations
 from loguru import logger
 
 from .client.abc import Client
-from .server.abc import Server
+from .server.abc import Server, StreamServer
 from .server.container import ContainerServer
 from .server.local import LocalServer
 from .utils.types import *  # noqa: F403
@@ -63,6 +63,7 @@ __all__ = [
     "ContainerServer",
     "LocalServer",
     "Server",
+    "StreamServer",
     "disable_logging",
     "enable_logging",
 ]
