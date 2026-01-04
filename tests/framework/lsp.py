@@ -539,7 +539,7 @@ class DocumentSymbolsAssertion:
             return False
 
         if not check_symbols(self.response):
-            print(f"Actually found: {getattr(self, '_last_found_names', [])}")
+            print(f"Actually found: {self._last_found_names}")
             assert False, f"Symbol '{name}' not found"
 
 
