@@ -35,6 +35,7 @@ class WithRequestTypeHierarchy(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.type_hierarchy = lsp_type.TypeHierarchyClientCapabilities()
 
     @override

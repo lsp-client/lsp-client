@@ -33,6 +33,7 @@ class WithRequestDocumentSymbol(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.document_symbol = lsp_type.DocumentSymbolClientCapabilities(
             symbol_kind=lsp_type.ClientSymbolKindOptions(
                 value_set=[*lsp_type.SymbolKind]

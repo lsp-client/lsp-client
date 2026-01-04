@@ -34,6 +34,7 @@ class WithNotifyTextDocumentSynchronize(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.synchronization = lsp_type.TextDocumentSyncClientCapabilities(
             will_save=True,
             will_save_wait_until=True,

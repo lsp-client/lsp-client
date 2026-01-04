@@ -31,6 +31,7 @@ class WithRequestSignatureHelp(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.signature_help = lsp_type.SignatureHelpClientCapabilities(
             context_support=True,
             signature_information=lsp_type.ClientSignatureInformationOptions(

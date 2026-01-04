@@ -33,6 +33,7 @@ class WithRequestCodeAction(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.code_action = lsp_type.CodeActionClientCapabilities(
             code_action_literal_support=lsp_type.ClientCodeActionLiteralOptions(
                 code_action_kind=lsp_type.ClientCodeActionKindOptions(

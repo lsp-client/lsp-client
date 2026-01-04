@@ -30,7 +30,10 @@ def deep_merge(base: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
 
 
 def deep_get(d: dict, keys: Iterable) -> Any:
-    return reduce(getitem, keys, d)
+    try:
+        return reduce(getitem, keys, d)
+    except (KeyError, TypeError):
+        return None
 
 
 @runtime_checkable

@@ -38,6 +38,7 @@ class WithRequestWorkspaceSymbol(
     def register_workspace_capability(
         cls, cap: lsp_type.WorkspaceClientCapabilities
     ) -> None:
+        super().register_workspace_capability(cap)
         cap.symbol = lsp_type.WorkspaceSymbolClientCapabilities(
             symbol_kind=lsp_type.ClientSymbolKindOptions(
                 value_set=[*lsp_type.SymbolKind]
