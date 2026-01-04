@@ -133,7 +133,7 @@ class StreamServer(Server):
         if timeout is None:
             await self._resp_table.wait_until_empty()
         else:
-            with anyio.fail_after(timeout):
+            with anyio.move_on_after(timeout):
                 await self._resp_table.wait_until_empty()
 
     @cached_property
