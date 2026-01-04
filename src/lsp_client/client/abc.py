@@ -319,6 +319,9 @@ class Client(
             try:
                 yield self
             finally:
+                await self.get_server().wait_requests_completed(
+                    timeout=self.request_timeout
+                )
                 _ = await self._shutdown()
                 await self._exit()
 

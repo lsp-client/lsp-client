@@ -58,6 +58,10 @@ class Server(ABC):
         """Terminate the server runtime."""
 
     @abstractmethod
+    async def wait_requests_completed(self, timeout: float | None = None) -> None:
+        """Wait until all pending requests are completed."""
+
+    @abstractmethod
     @asynccontextmanager
     def run(
         self,
@@ -125,6 +129,13 @@ class StreamServer(Server):
 
         return
 
+    async def wait_requests_completed(self, timeout: float | None = None) -> None:
+        if timeout is None:
+            await self._resp_table.wait_until_empty()
+        else:
+            with anyio.fail_after(timeout):
+                await self._resp_table.wait_until_empty()
+
     @cached_property
     def _buffered_receive_stream(self) -> BufferedByteReceiveStream:
         return BufferedByteReceiveStream(self.receive_stream)
@@ -151,7 +162,7 @@ class StreamServer(Server):
     ) -> None:
         match package:
             case {"result": _, "id": id} | {"error": _, "id": id} as resp:
-                self._resp_table.send(id, resp)
+                await self._resp_table.send(id, resp)
             case {"id": id, "method": _} as server_req:
                 tx, rx = response_channel.create()
                 await sender.send((server_req, tx))

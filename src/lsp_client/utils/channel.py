@@ -6,7 +6,7 @@ from typing import NamedTuple, Self
 
 import anyio
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from attrs import Factory, define, frozen
+from attrs import Factory, define, field, frozen
 
 
 @frozen
@@ -50,14 +50,17 @@ class OneShotTable[T]:
     """Dispatch data to one-shot senders by ID."""
 
     _pending: dict[Hashable, OneShotSender[T]] = Factory(dict)
-    """wait for `_pending` to be empty."""
+    _condition: anyio.Condition = field(factory=anyio.Condition, init=False)
 
-    def send(self, id: Hashable, data: T) -> None:
+    async def send(self, id: Hashable, data: T) -> None:
         if id not in self._pending:
             raise ValueError(f"Pending request of id {id} not found")
 
         self._pending[id].send(data)
         self._pending.pop(id)
+        if not self._pending:
+            async with self._condition:
+                self._condition.notify_all()
 
     def reserve(self, id: Hashable) -> OneShotReceiver[T]:
         if id in self._pending:
@@ -73,6 +76,14 @@ class OneShotTable[T]:
             return await rx.receive()
         finally:
             self._pending.pop(id, None)
+            if not self._pending:
+                async with self._condition:
+                    self._condition.notify_all()
+
+    async def wait_until_empty(self) -> None:
+        async with self._condition:
+            while self._pending:
+                await self._condition.wait()
 
     @property
     def completed(self) -> bool:
