@@ -82,7 +82,7 @@ class Client(
     sync_file: bool = True
     """Whether to sync file contents with the server."""
 
-    request_timeout: float = 5.0
+    request_timeout: float = 10.0
     """Timeout in seconds for JSON-RPC requests."""
 
     initialization_options: dict = field(factory=dict)
