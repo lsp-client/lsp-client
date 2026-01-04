@@ -28,6 +28,7 @@ class WithNotifyDidChangeConfiguration(
     def register_workspace_capability(
         cls, cap: lsp_type.WorkspaceClientCapabilities
     ) -> None:
+        super().register_workspace_capability(cap)
         cap.did_change_configuration = (
             lsp_type.DidChangeConfigurationClientCapabilities()
         )

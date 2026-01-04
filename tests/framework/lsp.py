@@ -514,6 +514,7 @@ class DocumentSymbolsAssertion:
     response: (
         Sequence[lsp_type.SymbolInformation] | Sequence[lsp_type.DocumentSymbol] | None
     )
+    _last_found_names: list[str] = attrs.field(factory=list, init=False)
 
     def expect_symbol(self, name: str, kind: lsp_type.SymbolKind | None = None) -> None:
         assert self.response is not None, "Document symbols response is None"
@@ -522,18 +523,24 @@ class DocumentSymbolsAssertion:
             symbols: Sequence[lsp_type.SymbolInformation]
             | Sequence[lsp_type.DocumentSymbol],
         ) -> bool:
+            found_names = []
             for sym in symbols:
                 if isinstance(sym, lsp_type.DocumentSymbol):
+                    found_names.append(f"{sym.name} ({sym.kind})")
                     if sym.name == name and (kind is None or sym.kind == kind):
                         return True
                     if sym.children and check_symbols(sym.children):
                         return True
                 elif isinstance(sym, lsp_type.SymbolInformation):
+                    found_names.append(f"{sym.name} ({sym.kind})")
                     if sym.name == name and (kind is None or sym.kind == kind):
                         return True
+            self._last_found_names = found_names
             return False
 
-        assert check_symbols(self.response), f"Symbol '{name}' not found"
+        if not check_symbols(self.response):
+            print(f"Actually found: {getattr(self, '_last_found_names', [])}")
+            assert False, f"Symbol '{name}' not found"
 
 
 @asynccontextmanager

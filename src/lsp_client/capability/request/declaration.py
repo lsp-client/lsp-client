@@ -33,6 +33,7 @@ class WithRequestDeclaration(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.declaration = lsp_type.DeclarationClientCapabilities(
             link_support=True,
         )

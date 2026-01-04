@@ -29,6 +29,7 @@ class WithRequestHover(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.hover = lsp_type.HoverClientCapabilities(
             content_format=[
                 lsp_type.MarkupKind.Markdown,

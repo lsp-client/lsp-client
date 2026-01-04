@@ -34,6 +34,7 @@ class WithRequestInlayHint(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.inlay_hint = lsp_type.InlayHintClientCapabilities(
             resolve_support=lsp_type.ClientInlayHintResolveOptions(
                 properties=[

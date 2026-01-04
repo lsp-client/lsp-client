@@ -36,6 +36,7 @@ class WithRequestCompletion(
     def register_text_document_capability(
         cls, cap: lsp_type.TextDocumentClientCapabilities
     ) -> None:
+        super().register_text_document_capability(cap)
         cap.completion = lsp_type.CompletionClientCapabilities(
             completion_item=lsp_type.ClientCompletionItemOptions(
                 snippet_support=True,
