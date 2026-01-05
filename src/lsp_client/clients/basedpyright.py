@@ -26,7 +26,6 @@ from lsp_client.capability.request import (
     WithRequestTypeDefinition,
     WithRequestWorkspaceSymbol,
 )
-from lsp_client.capability.request.implementation import WithRequestImplementation
 from lsp_client.capability.server_notification import (
     WithReceiveLogMessage,
     WithReceiveLogTrace,
@@ -88,7 +87,6 @@ class BasedpyrightClient(
     PythonClientBase,
     WithNotifyDidChangeConfiguration,
     WithRequestCallHierarchy,
-    WithRequestImplementation,
     WithRequestCodeAction,
     WithRequestCompletion,
     WithRequestDeclaration,
