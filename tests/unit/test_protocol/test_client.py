@@ -82,8 +82,28 @@ def test_capability_client_protocol_as_uri_multi_root():
 
 def test_capability_client_protocol_from_uri():
     workspace = Workspace()
+    path = Path("/test/project/file.py")
+    workspace[DEFAULT_WORKSPACE_DIR] = WorkspaceFolder(
+        uri=Path("/test/project").as_uri(), name=DEFAULT_WORKSPACE_DIR
+    )
     client = MockClient(workspace)
 
-    path = Path("/test/project/file.py")
     uri = path.as_uri()
-    assert client.from_uri(uri) == path
+    assert client.from_uri(uri) == Path("file.py")
+    assert client.from_uri(uri, relative=False) == path
+
+
+def test_capability_client_protocol_from_uri_multi_root():
+    workspace = Workspace()
+    path1 = Path("/test/root1")
+    path2 = Path("/test/root2")
+    workspace["root1"] = WorkspaceFolder(uri=path1.as_uri(), name="root1")
+    workspace["root2"] = WorkspaceFolder(uri=path2.as_uri(), name="root2")
+    client = MockClient(workspace)
+
+    uri1 = Path("/test/root1/file.py").as_uri()
+    uri2 = Path("/test/root2/file.py").as_uri()
+
+    assert client.from_uri(uri1, relative=True) == Path("root1/file.py")
+    assert client.from_uri(uri2, relative=True) == Path("root2/file.py")
+    assert client.from_uri(uri1, relative=False) == Path("/test/root1/file.py")

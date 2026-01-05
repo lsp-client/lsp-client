@@ -84,13 +84,32 @@ class CapabilityClientProtocol(Protocol):
             folder = self.get_workspace()[root]
             return (folder.path / Path(*file_path.parts[1:])).as_uri()
 
-    def from_uri(self, uri: str) -> Path:
-        """Convert a URI to an absolute path."""
-        return from_local_uri(uri)
+    def from_uri(self, uri: str, *, relative: bool = True) -> Path:
+        """
+        Convert a URI to a path.
+
+        If `relative` is True, return the path relative to the workspace.
+        """
+        path = from_local_uri(uri)
+        if not relative:
+            return path
+
+        workspace = self.get_workspace()
+        if len(workspace) == 1 and DEFAULT_WORKSPACE_DIR in workspace:
+            folder = workspace[DEFAULT_WORKSPACE_DIR]
+            if path.is_relative_to(folder.path):
+                return path.relative_to(folder.path)
+            return path
+
+        for name, folder in workspace.items():
+            if path.is_relative_to(folder.path):
+                return Path(name) / path.relative_to(folder.path)
+
+        return path
 
     async def read_file(self, file_path: AnyPath) -> str:
         """Read the content of a file in the workspace."""
 
         uri = self.as_uri(file_path)
-        abs_file_path = self.from_uri(uri)
+        abs_file_path = self.from_uri(uri, relative=False)
         return await anyio.Path(abs_file_path).read_text()
