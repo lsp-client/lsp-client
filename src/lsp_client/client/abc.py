@@ -20,6 +20,7 @@ from lsp_client.capability.build import (
 )
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
 from lsp_client.client.buffer import LSPFileBuffer
+from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.jsonrpc.convert import (
     notification_serialize,
     request_deserialize,
@@ -90,6 +91,9 @@ class Client(
 
     _server: Server = field(init=False)
     _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
+    _document_state: DocumentStateManager = field(
+        factory=DocumentStateManager, init=False
+    )
     _config: ConfigurationMap = Factory(ConfigurationMap)
 
     @cached_property
@@ -181,6 +185,7 @@ class Client(
         buffer_items = await self._buffer.open(file_uris)
         async with asyncer.create_task_group() as tg:
             for item in buffer_items:
+                self._document_state.register(item.file_uri, item.content, version=0)
                 tg.soonify(self.notify_text_document_opened)(
                     file_path=item.file_path,
                     file_content=item.content,
@@ -193,6 +198,7 @@ class Client(
 
             async with asyncer.create_task_group() as tg:
                 for item in closed_items:
+                    self._document_state.unregister(item.file_uri)
                     tg.soonify(self.notify_text_document_closed)(item.file_path)
 
     @override

@@ -126,7 +126,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Compare using resolved paths to handle symlinks properly
                 actual_resolved = actual_path.resolve()
                 expected_resolved = expected_path.resolve()
@@ -138,11 +140,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -167,7 +173,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Pyrefly may return resolved paths
                 # Compare using resolved paths to handle symlinks properly
                 actual_resolved = actual_path.resolve()
@@ -180,11 +188,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -209,7 +221,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Pyrefly may return resolved paths, so we need to handle symlinks
                 # Try to resolve both paths and compare
                 try:
@@ -234,11 +248,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -276,7 +294,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Compare using relative paths to handle symlinks
                 try:
                     actual_rel = actual_path.relative_to(
@@ -298,11 +318,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -335,7 +359,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Compare using relative paths to handle symlinks
                 try:
                     actual_rel = actual_path.relative_to(
@@ -357,11 +383,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -394,7 +424,9 @@ class DefinitionAssertion:
 
         match self.response:
             case lsp_type.Location() as loc:
-                actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                actual_path = Path(
+                    self.interaction.client.from_uri(loc.uri, relative=False)
+                )
                 # Compare using relative paths to handle symlinks
                 try:
                     actual_rel = actual_path.relative_to(
@@ -416,11 +448,15 @@ class DefinitionAssertion:
                 found = False
                 for loc in locs:
                     if isinstance(loc, lsp_type.Location):
-                        actual_path = Path(self.interaction.client.from_uri(loc.uri))
+                        actual_path = Path(
+                            self.interaction.client.from_uri(loc.uri, relative=False)
+                        )
                         actual_range = loc.range
                     elif isinstance(loc, lsp_type.LocationLink):
                         actual_path = Path(
-                            self.interaction.client.from_uri(loc.target_uri)
+                            self.interaction.client.from_uri(
+                                loc.target_uri, relative=False
+                            )
                         )
                         actual_range = loc.target_selection_range
                     else:
@@ -498,7 +534,7 @@ class ReferencesAssertion:
 
         found = False
         for loc in self.response:
-            actual_path = self.interaction.client.from_uri(loc.uri)
+            actual_path = self.interaction.client.from_uri(loc.uri, relative=False)
             if (
                 Path(actual_path).resolve() == expected_path
                 and loc.range == expected_range
