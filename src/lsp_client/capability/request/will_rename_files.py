@@ -7,7 +7,7 @@ from lsp_client.jsonrpc.id import jsonrpc_uuid
 from lsp_client.protocol import CapabilityClientProtocol, WorkspaceCapabilityProtocol
 from lsp_client.utils.types import lsp_type
 
-from ._workspace_edit_mixin import WithApplyWorkspaceEdit
+from .workspace_edit import WithApplyWorkspaceEdit
 
 
 @runtime_checkable

@@ -44,5 +44,6 @@ class WithApplyWorkspaceEdit(DocumentEditProtocol, Protocol):
             >>>     except EditApplicationError as e:
             >>>         print(f"Failed: {e.message}")
         """
+
         applicator = WorkspaceEditApplicator(client=self)
         await applicator.apply_workspace_edit(edit)
