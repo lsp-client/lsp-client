@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import shutil
 from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+import anyio
 from attrs import define
 from loguru import logger
 
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.exception import EditApplicationError, VersionMismatchError
 from lsp_client.utils.types import lsp_type
+from lsp_client.utils.uri import from_local_uri
 
 
 @runtime_checkable
@@ -122,33 +125,22 @@ class WorkspaceEditApplicator:
 
     client: DocumentEditProtocol
 
-    async def apply_workspace_edit(
-        self, edit: lsp_type.WorkspaceEdit
-    ) -> tuple[bool, str | None]:
+    async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:
         """
         Apply workspace edit to documents.
 
         Args:
             edit: Workspace edit to apply
 
-        Returns:
-            Tuple of (success, failure_reason)
-            - success: True if edit was applied successfully
-            - failure_reason: None on success, error message on failure
+        Raises:
+            EditApplicationError: If edit cannot be applied due to business logic
+            OSError: If file I/O operations fail
+            ValueError: If edit contains invalid data
         """
-        try:
-            if edit.document_changes:
-                await self._apply_document_changes(edit.document_changes)
-            elif edit.changes:
-                await self._apply_changes(edit.changes)
-
-            return True, None
-        except EditApplicationError as e:
-            logger.error(f"Failed to apply workspace edit: {e.message}")
-            return False, e.message
-        except (OSError, ValueError) as e:
-            logger.error(f"I/O error applying workspace edit: {e}")
-            return False, str(e)
+        if edit.document_changes:
+            await self._apply_document_changes(edit.document_changes)
+        elif edit.changes:
+            await self._apply_changes(edit.changes)
 
     async def _apply_document_changes(
         self,
@@ -165,20 +157,11 @@ class WorkspaceEditApplicator:
                 case lsp_type.TextDocumentEdit():
                     await self._apply_text_document_edit(change)
                 case lsp_type.CreateFile():
-                    raise EditApplicationError(
-                        message="CreateFile not yet supported",
-                        uri=change.uri,
-                    )
+                    await self._apply_create_file(change)
                 case lsp_type.RenameFile():
-                    raise EditApplicationError(
-                        message="RenameFile not yet supported",
-                        uri=change.old_uri,
-                    )
+                    await self._apply_rename_file(change)
                 case lsp_type.DeleteFile():
-                    raise EditApplicationError(
-                        message="DeleteFile not yet supported",
-                        uri=change.uri,
-                    )
+                    await self._apply_delete_file(change)
 
     async def _apply_text_document_edit(self, edit: lsp_type.TextDocumentEdit) -> None:
         """Apply text document edit with version validation."""
@@ -197,7 +180,10 @@ class WorkspaceEditApplicator:
 
             if actual_version != expected_version:
                 raise VersionMismatchError(
-                    message=f"Version mismatch for {uri}: expected {expected_version}, got {actual_version}",
+                    message=(
+                        f"Version mismatch for {uri}: "
+                        f"expected {expected_version}, got {actual_version}"
+                    ),
                     uri=uri,
                     expected_version=expected_version,
                     actual_version=actual_version,
@@ -226,3 +212,145 @@ class WorkspaceEditApplicator:
             # Update document state if tracked
             with suppress(KeyError):
                 self.client._document_state.update_content(uri, new_content)
+
+    async def _apply_create_file(self, change: lsp_type.CreateFile) -> None:
+        """Apply CreateFile resource operation."""
+        uri = change.uri
+        path = from_local_uri(uri)
+        file_path = anyio.Path(path)
+
+        # Check if file exists
+        exists = await file_path.exists()
+
+        if exists:
+            if change.options and change.options.overwrite:
+                # Overwrite is allowed, continue
+                pass
+            elif change.options and change.options.ignore_if_exists:
+                # Ignore the create operation
+                logger.debug(
+                    f"Skipping CreateFile for {uri}: "
+                    "file exists and ignoreIfExists is true"
+                )
+                return
+            else:
+                # Default behavior: fail if file exists
+                raise EditApplicationError(
+                    message=(f"File {uri} already exists and overwrite is not allowed"),
+                    uri=uri,
+                )
+
+        # Create parent directories if needed
+        parent = file_path.parent
+        if parent and not await parent.exists():
+            await parent.mkdir(parents=True, exist_ok=True)
+
+        # Create the file
+        await file_path.write_text("")
+        logger.debug(f"Created file: {uri}")
+
+    async def _apply_rename_file(self, change: lsp_type.RenameFile) -> None:
+        """Apply RenameFile resource operation."""
+        old_uri = change.old_uri
+        new_uri = change.new_uri
+        old_path = anyio.Path(from_local_uri(old_uri))
+        new_path = anyio.Path(from_local_uri(new_uri))
+
+        # Check if old file exists
+        if not await old_path.exists():
+            raise EditApplicationError(
+                message=f"Source file {old_uri} does not exist",
+                uri=old_uri,
+            )
+
+        # Check if new file exists
+        new_exists = await new_path.exists()
+
+        if new_exists:
+            if change.options and change.options.overwrite:
+                # Overwrite is allowed, delete the target
+                await new_path.unlink()
+            elif change.options and change.options.ignore_if_exists:
+                # Ignore the rename operation
+                logger.debug(
+                    f"Skipping RenameFile {old_uri} -> {new_uri}: "
+                    "target exists and ignoreIfExists is true"
+                )
+                return
+            else:
+                # Default behavior: fail if target exists
+                raise EditApplicationError(
+                    message=(
+                        f"Target file {new_uri} already exists "
+                        "and overwrite is not allowed"
+                    ),
+                    uri=new_uri,
+                )
+
+        # Create parent directories for target if needed
+        parent = new_path.parent
+        if parent and not await parent.exists():
+            await parent.mkdir(parents=True, exist_ok=True)
+
+        # Perform the rename
+        await old_path.rename(new_path)
+        logger.debug(f"Renamed file: {old_uri} -> {new_uri}")
+
+        # Update document state if tracked
+        with suppress(KeyError):
+            content = self.client._document_state.get_content(old_uri)
+            version = self.client._document_state.get_version(old_uri)
+            self.client._document_state.unregister(old_uri)
+            self.client._document_state.register(new_uri, content, version=version)
+
+    async def _apply_delete_file(self, change: lsp_type.DeleteFile) -> None:
+        """Apply DeleteFile resource operation."""
+        uri = change.uri
+        path = anyio.Path(from_local_uri(uri))
+
+        # Check if file exists
+        exists = await path.exists()
+
+        if not exists:
+            if change.options and change.options.ignore_if_not_exists:
+                # Ignore the delete operation
+                logger.debug(
+                    f"Skipping DeleteFile for {uri}: "
+                    "file does not exist and ignoreIfNotExists is true"
+                )
+                return
+            else:
+                # Default behavior: fail if file doesn't exist
+                raise EditApplicationError(
+                    message=f"File {uri} does not exist",
+                    uri=uri,
+                )
+
+        # Handle directory or file
+        is_dir = await path.is_dir()
+
+        if is_dir:
+            if change.options and change.options.recursive:
+                # Recursively delete directory (blocking operation)
+                shutil.rmtree(path)
+                logger.debug(f"Deleted directory recursively: {uri}")
+            else:
+                # Only delete empty directories
+                try:
+                    await path.rmdir()
+                    logger.debug(f"Deleted empty directory: {uri}")
+                except OSError as e:
+                    raise EditApplicationError(
+                        message=(
+                            f"Directory {uri} is not empty and recursive is not set"
+                        ),
+                        uri=uri,
+                    ) from e
+        else:
+            # Delete file
+            await path.unlink()
+            logger.debug(f"Deleted file: {uri}")
+
+        # Update document state if tracked
+        with suppress(KeyError):
+            self.client._document_state.unregister(uri)

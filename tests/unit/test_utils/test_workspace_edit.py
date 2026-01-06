@@ -1,31 +1,47 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
+import anyio
 import pytest
 from lsprotocol import types as lsp_type
 
 from lsp_client.client.document_state import DocumentStateManager
+from lsp_client.exception import EditApplicationError, VersionMismatchError
 from lsp_client.utils.workspace_edit import WorkspaceEditApplicator, apply_text_edits
 
 
 class MockClient:
     """Mock client for testing workspace edit application."""
 
-    def __init__(self) -> None:
+    def __init__(self, temp_dir: Path | None = None) -> None:
         self._document_state = DocumentStateManager()
         self._files: dict[str, str] = {}
+        self._temp_dir = temp_dir
 
     async def read_file(self, file_path: str | Path) -> str:
+        if self._temp_dir:
+            # Read from actual filesystem if temp_dir is set
+            path = anyio.Path(file_path)
+            if await path.exists():
+                return await path.read_text()
+            raise FileNotFoundError(f"File not found: {file_path}")
+
         path_str = str(file_path)
         if path_str not in self._files:
             raise FileNotFoundError(f"File not found: {file_path}")
         return self._files[path_str]
 
     async def write_file(self, uri: str, content: str) -> None:
-        # Extract path from URI for simplicity
-        path = uri.replace("file://", "")
-        self._files[path] = content
+        if self._temp_dir:
+            # Write to actual filesystem if temp_dir is set
+            path = uri.replace("file://", "")
+            await anyio.Path(path).write_text(content)
+        else:
+            # Extract path from URI for simplicity
+            path = uri.replace("file://", "")
+            self._files[path] = content
 
     def from_uri(self, uri: str, *, relative: bool = True) -> Path:
         # Simple URI to path conversion
@@ -147,16 +163,14 @@ async def test_workspace_edit_applicator_simple():
         ]
     )
 
-    success, error = await applicator.apply_workspace_edit(edit)
-    assert success
-    assert error is None
+    await applicator.apply_workspace_edit(edit)
     assert client._files["/test.py"] == "print('world')\n"
     assert client._document_state.get_version("file:///test.py") == 1
 
 
 @pytest.mark.asyncio
 async def test_workspace_edit_applicator_version_mismatch():
-    """Test that version mismatch is detected."""
+    """Test that version mismatch raises exception."""
     client = MockClient()
     client._files["/test.py"] = "print('hello')\n"
     client._document_state.register("file:///test.py", "print('hello')\n", version=5)
@@ -182,15 +196,15 @@ async def test_workspace_edit_applicator_version_mismatch():
         ]
     )
 
-    success, error = await applicator.apply_workspace_edit(edit)
-    assert not success
-    assert error is not None
-    assert "Version mismatch" in error
+    with pytest.raises(VersionMismatchError) as exc_info:
+        await applicator.apply_workspace_edit(edit)
+
+    assert "Version mismatch" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
 async def test_workspace_edit_applicator_untracked_document():
-    """Test that editing untracked document fails."""
+    """Test that editing untracked document raises exception."""
     client = MockClient()
     client._files["/test.py"] = "print('hello')\n"
 
@@ -214,10 +228,10 @@ async def test_workspace_edit_applicator_untracked_document():
         ]
     )
 
-    success, error = await applicator.apply_workspace_edit(edit)
-    assert not success
-    assert error is not None
-    assert "not open in client" in error
+    with pytest.raises(EditApplicationError) as exc_info:
+        await applicator.apply_workspace_edit(edit)
+
+    assert "not open in client" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -241,7 +255,189 @@ async def test_workspace_edit_applicator_changes_format():
         }
     )
 
-    success, error = await applicator.apply_workspace_edit(edit)
-    assert success
-    assert error is None
+    await applicator.apply_workspace_edit(edit)
     assert client._files["/test.py"] == "print('world')\n"
+
+
+@pytest.mark.asyncio
+async def test_create_file():
+    """Test CreateFile resource operation."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        new_file = temp_path / "new_file.txt"
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[lsp_type.CreateFile(uri=new_file.as_uri())]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+        assert await anyio.Path(new_file).exists()
+
+
+@pytest.mark.asyncio
+async def test_create_file_with_overwrite():
+    """Test CreateFile with overwrite option."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        existing_file = temp_path / "existing.txt"
+        await anyio.Path(existing_file).write_text("original content")
+
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[
+                lsp_type.CreateFile(
+                    uri=existing_file.as_uri(),
+                    options=lsp_type.CreateFileOptions(overwrite=True),
+                )
+            ]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+
+
+@pytest.mark.asyncio
+async def test_create_file_ignore_if_exists():
+    """Test CreateFile with ignoreIfExists option."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        existing_file = temp_path / "existing.txt"
+        await anyio.Path(existing_file).write_text("original content")
+
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[
+                lsp_type.CreateFile(
+                    uri=existing_file.as_uri(),
+                    options=lsp_type.CreateFileOptions(ignore_if_exists=True),
+                )
+            ]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+        assert await anyio.Path(existing_file).read_text() == "original content"
+
+
+@pytest.mark.asyncio
+async def test_rename_file():
+    """Test RenameFile resource operation."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        old_file = temp_path / "old.txt"
+        await anyio.Path(old_file).write_text("content")
+
+        new_file = temp_path / "new.txt"
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[
+                lsp_type.RenameFile(
+                    old_uri=old_file.as_uri(), new_uri=new_file.as_uri()
+                )
+            ]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+        assert not await anyio.Path(old_file).exists()
+        assert await anyio.Path(new_file).exists()
+        assert await anyio.Path(new_file).read_text() == "content"
+
+
+@pytest.mark.asyncio
+async def test_rename_file_with_document_state():
+    """Test RenameFile updates document state."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        old_file = temp_path / "old.txt"
+        await anyio.Path(old_file).write_text("content")
+        old_uri = old_file.as_uri()
+        client._document_state.register(old_uri, "content", version=5)
+
+        new_file = temp_path / "new.txt"
+        new_uri = new_file.as_uri()
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[lsp_type.RenameFile(old_uri=old_uri, new_uri=new_uri)]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+
+        with pytest.raises(KeyError):
+            client._document_state.get_version(old_uri)
+
+        assert client._document_state.get_version(new_uri) == 5
+        assert client._document_state.get_content(new_uri) == "content"
+
+
+@pytest.mark.asyncio
+async def test_delete_file():
+    """Test DeleteFile resource operation."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        file_to_delete = temp_path / "delete_me.txt"
+        await anyio.Path(file_to_delete).write_text("content")
+
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[lsp_type.DeleteFile(uri=file_to_delete.as_uri())]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+        assert not await anyio.Path(file_to_delete).exists()
+
+
+@pytest.mark.asyncio
+async def test_delete_file_with_document_state():
+    """Test DeleteFile removes from document state."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        file_to_delete = temp_path / "delete_me.txt"
+        await anyio.Path(file_to_delete).write_text("content")
+        uri = file_to_delete.as_uri()
+        client._document_state.register(uri, "content", version=3)
+
+        edit = lsp_type.WorkspaceEdit(document_changes=[lsp_type.DeleteFile(uri=uri)])
+
+        await applicator.apply_workspace_edit(edit)
+
+        with pytest.raises(KeyError):
+            client._document_state.get_version(uri)
+
+
+@pytest.mark.asyncio
+async def test_delete_directory_recursive():
+    """Test DeleteFile with recursive directory deletion."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        client = MockClient(temp_dir=temp_path)
+        applicator = WorkspaceEditApplicator(client=client)
+
+        dir_to_delete = temp_path / "dir"
+        await anyio.Path(dir_to_delete).mkdir()
+        await anyio.Path(dir_to_delete / "file1.txt").write_text("content1")
+        await anyio.Path(dir_to_delete / "file2.txt").write_text("content2")
+
+        edit = lsp_type.WorkspaceEdit(
+            document_changes=[
+                lsp_type.DeleteFile(
+                    uri=dir_to_delete.as_uri(),
+                    options=lsp_type.DeleteFileOptions(recursive=True),
+                )
+            ]
+        )
+
+        await applicator.apply_workspace_edit(edit)
+        assert not await anyio.Path(dir_to_delete).exists()

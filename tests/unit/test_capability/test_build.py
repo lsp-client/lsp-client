@@ -172,9 +172,18 @@ class TestWithRespondApplyEdit:
 
         # Check that resource operations are advertised
         assert cap.workspace_edit.resource_operations is not None
-        assert lsp_type.ResourceOperationKind.Create in cap.workspace_edit.resource_operations
-        assert lsp_type.ResourceOperationKind.Rename in cap.workspace_edit.resource_operations
-        assert lsp_type.ResourceOperationKind.Delete in cap.workspace_edit.resource_operations
+        assert (
+            lsp_type.ResourceOperationKind.Create
+            in cap.workspace_edit.resource_operations
+        )
+        assert (
+            lsp_type.ResourceOperationKind.Rename
+            in cap.workspace_edit.resource_operations
+        )
+        assert (
+            lsp_type.ResourceOperationKind.Delete
+            in cap.workspace_edit.resource_operations
+        )
 
         # Check failure handling
         assert cap.workspace_edit.failure_handling == lsp_type.FailureHandlingKind.Undo

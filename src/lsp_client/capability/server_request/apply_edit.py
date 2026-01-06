@@ -5,6 +5,7 @@ from typing import Protocol, override, runtime_checkable
 
 from loguru import logger
 
+from lsp_client.exception import EditApplicationError
 from lsp_client.protocol import (
     CapabilityClientProtocol,
     ServerRequestHook,
@@ -78,12 +79,47 @@ class WithRespondApplyEdit(
         logger.debug("Responding to workspace/applyEdit request")
 
         applicator = WorkspaceEditApplicator(client=self)
-        applied, failure_reason = await applicator.apply_workspace_edit(params.edit)
+        try:
+            await applicator.apply_workspace_edit(params.edit)
+            return lsp_type.ApplyWorkspaceEditResult(applied=True)
+        except EditApplicationError as e:
+            logger.error(f"Failed to apply workspace edit: {e.message}")
+            return lsp_type.ApplyWorkspaceEditResult(
+                applied=False, failure_reason=e.message
+            )
+        except (OSError, ValueError) as e:
+            logger.error(f"I/O error applying workspace edit: {e}")
+            return lsp_type.ApplyWorkspaceEditResult(
+                applied=False, failure_reason=str(e)
+            )
 
-        return lsp_type.ApplyWorkspaceEditResult(
-            applied=applied,
-            failure_reason=failure_reason,
-        )
+    async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:
+        """
+        Apply workspace edit to documents.
+
+        This is a convenience method for applying workspace edits obtained from
+        LSP requests (e.g., from request_rename_edits).
+
+        Args:
+            edit: Workspace edit to apply
+
+        Raises:
+            EditApplicationError: If edit cannot be applied due to business logic
+                (e.g., version mismatch, file not found)
+            OSError: If file I/O operations fail
+            ValueError: If edit contains invalid data
+
+        Example:
+            >>> edits = await client.request_rename_edits(file, pos, "new_name")
+            >>> if edits:
+            >>>     try:
+            >>>         await client.apply_workspace_edit(edits)
+            >>>         print("Changes applied successfully")
+            >>>     except EditApplicationError as e:
+            >>>         print(f"Failed to apply: {e.message}")
+        """
+        applicator = WorkspaceEditApplicator(client=self)
+        await applicator.apply_workspace_edit(edit)
 
     async def respond_apply_edit(
         self, req: lsp_type.ApplyWorkspaceEditRequest
