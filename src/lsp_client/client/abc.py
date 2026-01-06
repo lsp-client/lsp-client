@@ -40,6 +40,7 @@ from lsp_client.utils.workspace import (
     RawWorkspace,
     Workspace,
     format_workspace,
+    from_local_uri,
 )
 
 
@@ -200,6 +201,11 @@ class Client(
                 for item in closed_items:
                     self._document_state.unregister(item.file_uri)
                     tg.soonify(self.notify_text_document_closed)(item.file_path)
+
+    async def write_file(self, uri: str, content: str) -> None:
+        """Write file content by URI."""
+        path = from_local_uri(uri)
+        await anyio.Path(path).write_text(content)
 
     @override
     async def request[R](
