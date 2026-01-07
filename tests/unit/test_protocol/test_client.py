@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.protocol.client import CapabilityClientProtocol
 from lsp_client.protocol.lang import LanguageConfig
 from lsp_client.utils.config import ConfigurationMap
@@ -17,6 +18,10 @@ class MockClient(CapabilityClientProtocol):
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
         self.config_map = ConfigurationMap()
+        self.document_state = DocumentStateManager()
+
+    def get_document_state(self) -> DocumentStateManager:
+        return self.document_state
 
     def get_workspace(self) -> Workspace:
         return self.workspace
@@ -35,6 +40,9 @@ class MockClient(CapabilityClientProtocol):
     @contextlib.asynccontextmanager
     async def open_files(self, *file_paths: AnyPath) -> AsyncGenerator[None]:
         yield
+
+    async def write_file(self, uri: str, content: str) -> None:
+        pass
 
     async def request[R](self, req: Request, schema: type[Response[R]]) -> R:
         raise NotImplementedError

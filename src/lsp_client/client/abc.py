@@ -149,6 +149,10 @@ class Client(
             )
 
     @override
+    def get_document_state(self) -> DocumentStateManager:
+        return self.document_state
+
+    @override
     def get_workspace(self) -> Workspace:
         return self._workspace
 

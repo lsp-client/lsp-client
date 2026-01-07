@@ -27,7 +27,9 @@ from .lang import LanguageConfig
 class DocumentEditProtocol(Protocol):
     """Protocol for objects that can apply document edits."""
 
-    document_state: DocumentStateManager
+    @abstractmethod
+    def get_document_state(self) -> DocumentStateManager:
+        """Get the document state manager."""
 
     async def read_file(self, file_path: AnyPath) -> str:
         """Read file content by path."""

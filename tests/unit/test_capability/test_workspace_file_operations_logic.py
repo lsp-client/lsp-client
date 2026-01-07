@@ -22,6 +22,9 @@ class MockClient:
         self.get_config_map_mock = MagicMock()
         self.document_state = MagicMock()
 
+    def get_document_state(self):
+        return self.document_state
+
     def get_workspace(self):
         return self.get_workspace_mock()
 

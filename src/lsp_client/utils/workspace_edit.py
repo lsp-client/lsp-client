@@ -177,7 +177,7 @@ class WorkspaceEditApplicator:
         # Validate version if specified
         if expected_version is not None:
             try:
-                actual_version = self.client.document_state.get_version(uri)
+                actual_version = self.client.get_document_state().get_version(uri)
             except KeyError as e:
                 raise EditApplicationError(
                     message=f"Document {uri} not open in client",
@@ -202,7 +202,7 @@ class WorkspaceEditApplicator:
         await self.client.write_file(uri, new_content)
 
         # Update document state
-        _ = self.client.document_state.update_content(uri, new_content)
+        _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_changes(
         self, changes: Mapping[str, Sequence[lsp_type.TextEdit]]
@@ -217,7 +217,7 @@ class WorkspaceEditApplicator:
 
             # Update document state if tracked
             with suppress(KeyError):
-                _ = self.client.document_state.update_content(uri, new_content)
+                _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_create_file(self, change: lsp_type.CreateFile) -> None:
         """Apply CreateFile resource operation."""
@@ -297,10 +297,10 @@ class WorkspaceEditApplicator:
 
         # Update document state if tracked
         with suppress(KeyError):
-            content = self.client.document_state.get_content(old_uri)
-            version = self.client.document_state.get_version(old_uri)
-            self.client.document_state.unregister(old_uri)
-            self.client.document_state.register(new_uri, content, version=version)
+            content = self.client.get_document_state().get_content(old_uri)
+            version = self.client.get_document_state().get_version(old_uri)
+            self.client.get_document_state().unregister(old_uri)
+            self.client.get_document_state().register(new_uri, content, version=version)
 
     async def _apply_delete_file(self, change: lsp_type.DeleteFile) -> None:
         """Apply DeleteFile resource operation."""
@@ -345,4 +345,4 @@ class WorkspaceEditApplicator:
 
         # Update document state if tracked
         with suppress(KeyError):
-            self.client.document_state.unregister(uri)
+            self.client.get_document_state().unregister(uri)

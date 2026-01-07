@@ -9,6 +9,7 @@ from lsprotocol import types as lsp_type
 
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.exception import EditApplicationError, VersionMismatchError
+from lsp_client.utils.types import AnyPath
 from lsp_client.utils.workspace_edit import WorkspaceEditApplicator, apply_text_edits
 
 
@@ -20,7 +21,10 @@ class MockClient:
         self._files: dict[str, str] = {}
         self._temp_dir = temp_dir
 
-    async def read_file(self, file_path: str | Path) -> str:
+    def get_document_state(self) -> DocumentStateManager:
+        return self.document_state
+
+    async def read_file(self, file_path: AnyPath) -> str:
         if self._temp_dir:
             # Read from actual filesystem if temp_dir is set
             path = anyio.Path(file_path)
