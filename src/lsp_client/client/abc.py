@@ -20,6 +20,7 @@ from lsp_client.capability.build import (
 )
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
 from lsp_client.client.buffer import LSPFileBuffer
+from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.jsonrpc.convert import (
     notification_serialize,
     request_deserialize,
@@ -39,6 +40,7 @@ from lsp_client.utils.workspace import (
     RawWorkspace,
     Workspace,
     format_workspace,
+    from_local_uri,
 )
 
 
@@ -85,11 +87,14 @@ class Client(
     request_timeout: float = 10.0
     """Timeout in seconds for JSON-RPC requests."""
 
-    initialization_options: dict = field(factory=dict)
+    initialization_options: dict[str, Any] = field(factory=dict)
     """Custom initialization options for the server."""
 
     _server: Server = field(init=False)
     _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
+    document_state: DocumentStateManager = field(
+        factory=DocumentStateManager, init=False
+    )
     _config: ConfigurationMap = Factory(ConfigurationMap)
 
     @cached_property
@@ -114,6 +119,8 @@ class Client(
                 yield defaults.local
             case Server() as server:
                 yield server
+            case _:
+                pass
 
         with suppress(ServerRuntimeError):
             await defaults.local.check_availability()
@@ -140,6 +147,10 @@ class Client(
             raise ExceptionGroup(
                 f"All servers failed to start for {type(self).__name__}", errors
             )
+
+    @override
+    def get_document_state(self) -> DocumentStateManager:
+        return self.document_state
 
     @override
     def get_workspace(self) -> Workspace:
@@ -181,19 +192,57 @@ class Client(
         buffer_items = await self._buffer.open(file_uris)
         async with asyncer.create_task_group() as tg:
             for item in buffer_items:
-                tg.soonify(self.notify_text_document_opened)(
-                    file_path=item.file_path,
-                    file_content=item.content,
-                )
+                try:
+                    # Check if the document is already registered
+                    self.document_state.get_version(item.file_uri)
+                except KeyError:
+                    self.document_state.register(item.file_uri, item.content, version=0)
+                    tg.soonify(self.notify_text_document_opened)(
+                        file_path=item.file_path,
+                        file_content=item.content,
+                    )
 
         try:
             yield
         finally:
-            closed_items = self._buffer.close(item.file_uri for item in buffer_items)
+            closed_items = self._buffer.close(file_uris)
 
             async with asyncer.create_task_group() as tg:
                 for item in closed_items:
+                    self.document_state.unregister(item.file_uri)
                     tg.soonify(self.notify_text_document_closed)(item.file_path)
+
+    async def write_file(self, uri: str, content: str) -> None:
+        """Write the given text content to a file identified by a local file URI.
+
+        This resolves the provided ``uri`` to a local filesystem path using
+        :func:`from_local_uri` and writes ``content`` to that path, replacing any
+        existing file contents. The write is performed asynchronously via
+        :class:`anyio.Path`.
+
+        Parameters
+        ----------
+        uri:
+            The local file URI of the target document to write to. It must be a
+            URI that :func:`from_local_uri` can resolve to a filesystem path.
+        content:
+            The full text content to be written to the target file.
+
+        Raises
+        ------
+        OSError
+            If writing to the underlying filesystem fails (for example due to
+            permission issues, missing directories, or other I/O errors).
+
+        Notes
+        -----
+        This method only updates the on-disk file and does **not** modify the
+        in-memory document state or buffer (for example, ``DocumentStateManager``
+        or ``LSPFileBuffer``). Callers are responsible for keeping any such
+        in-memory representations in sync with the written content.
+        """
+        path = from_local_uri(uri)
+        _ = await anyio.Path(path).write_text(content)
 
     @override
     async def request[R](

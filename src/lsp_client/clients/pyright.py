@@ -11,6 +11,9 @@ from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
+    WithNotifyDidCreateFiles,
+    WithNotifyDidDeleteFiles,
+    WithNotifyDidRenameFiles,
 )
 from lsp_client.capability.request import (
     WithRequestCallHierarchy,
@@ -21,8 +24,12 @@ from lsp_client.capability.request import (
     WithRequestDocumentSymbol,
     WithRequestHover,
     WithRequestReferences,
+    WithRequestRename,
     WithRequestSignatureHelp,
     WithRequestTypeDefinition,
+    WithRequestWillCreateFiles,
+    WithRequestWillDeleteFiles,
+    WithRequestWillRenameFiles,
     WithRequestWorkspaceSymbol,
 )
 from lsp_client.capability.server_notification import (
@@ -78,6 +85,9 @@ PyrightLocalServer = partial(
 class PyrightClient(
     PythonClientBase,
     WithNotifyDidChangeConfiguration,
+    WithNotifyDidCreateFiles,
+    WithNotifyDidRenameFiles,
+    WithNotifyDidDeleteFiles,
     WithRequestCallHierarchy,
     WithRequestCodeAction,
     WithRequestCompletion,
@@ -86,8 +96,12 @@ class PyrightClient(
     WithRequestDocumentSymbol,
     WithRequestHover,
     WithRequestReferences,
+    WithRequestRename,
     WithRequestSignatureHelp,
     WithRequestTypeDefinition,
+    WithRequestWillCreateFiles,
+    WithRequestWillRenameFiles,
+    WithRequestWillDeleteFiles,
     WithRequestWorkspaceSymbol,
     WithReceiveLogMessage,
     WithReceiveLogTrace,
