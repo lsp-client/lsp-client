@@ -154,3 +154,15 @@ def test_ty_default_config_has_diagnostics():
     assert config is not None
     assert "diagnostics" in config["ty"]
     assert "completion" in config["ty"]
+
+
+def test_jdtls_default_config_has_java_settings():
+    """Test that jdtls default config has java settings."""
+    from lsp_client.clients.jdtls import JdtlsClient
+
+    client = JdtlsClient()
+    config = client.create_default_config()
+
+    assert config is not None
+    assert "java" in config
+    assert config["java"]["autobuild"]["enabled"] is True
