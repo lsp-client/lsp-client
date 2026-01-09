@@ -129,7 +129,7 @@ class JdtlsClient(
                     "favoriteStaticMembers": [
                         "org.junit.Assert.*",
                         "org.junit.Assume.*",
-                        "org.junit.Juice.*",
+                        "org.junit.jupiter.*",
                         "org.junit.rules.ExpectedException.*",
                         "org.hamcrest.MatcherAssert.*",
                         "org.hamcrest.Matchers.*",
