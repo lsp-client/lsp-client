@@ -9,6 +9,7 @@ from lsp_client.client.abc import Client
 from .basedpyright import BasedpyrightClient
 from .deno.client import DenoClient
 from .gopls import GoplsClient
+from .jdtls import JdtlsClient
 from .rust_analyzer import RustAnalyzerClient
 from .typescript import TypescriptClient
 
@@ -18,12 +19,14 @@ type Language = Literal[
     "rust",
     "typescript",
     "deno",
+    "java",
 ]
 
 GoClient = GoplsClient
 PythonClient = BasedpyrightClient
 RustClient = RustAnalyzerClient
 TypeScriptClient = TypescriptClient
+JavaClient = JdtlsClient
 
 lang_clients: Final[dict[Language, type[Client]]] = {
     "go": GoplsClient,
@@ -31,4 +34,5 @@ lang_clients: Final[dict[Language, type[Client]]] = {
     "rust": RustAnalyzerClient,
     "typescript": TypescriptClient,
     "deno": DenoClient,
+    "java": JdtlsClient,
 }

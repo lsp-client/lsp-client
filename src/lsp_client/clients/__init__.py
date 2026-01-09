@@ -5,6 +5,7 @@ from typing import Final
 from .basedpyright import BasedpyrightClient
 from .deno import DenoClient
 from .gopls import GoplsClient
+from .jdtls import JdtlsClient
 from .pyrefly import PyreflyClient
 from .pyright import PyrightClient
 from .rust_analyzer import RustAnalyzerClient
@@ -20,12 +21,14 @@ clients: Final = {
     "deno": DenoClient,
     "typescript": TypescriptClient,
     "ty": TyClient,
+    "jdtls": JdtlsClient,
 }
 
 __all__ = [
     "BasedpyrightClient",
     "DenoClient",
     "GoplsClient",
+    "JdtlsClient",
     "PyreflyClient",
     "PyrightClient",
     "RustAnalyzerClient",

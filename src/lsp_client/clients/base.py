@@ -101,3 +101,32 @@ class TypeScriptClientBase(Client, ABC):
             suffixes=[".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
             project_files=["package.json", "tsconfig.json", "jsconfig.json"],
         )
+
+
+class JavaClientBase(Client, ABC):
+    """
+    Base class for Java language server clients.
+
+    Provides Java-specific configuration including file extensions (.java)
+    and common project configuration files (pom.xml, build.gradle, etc.).
+
+    Subclasses must implement:
+        create_default_servers(): Create server runtime instances
+        check_server_compatibility(): Verify server version compatibility
+    """
+
+    @override
+    @classmethod
+    def get_language_config(cls) -> LanguageConfig:
+        return LanguageConfig(
+            kind=lsp_type.LanguageKind.Java,
+            suffixes=[".java"],
+            project_files=[
+                "pom.xml",
+                "build.gradle",
+                "build.gradle.kts",
+                ".project",
+                "settings.gradle",
+                "settings.gradle.kts",
+            ],
+        )
