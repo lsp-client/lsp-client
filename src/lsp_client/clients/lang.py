@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Final, Literal
+from pathlib import Path
+from typing import Final, Literal, NamedTuple
 
 from lsp_client.client.abc import Client
 
@@ -36,3 +37,20 @@ lang_clients: Final[dict[Language, type[Client]]] = {
     "deno": DenoClient,
     "java": JdtlsClient,
 }
+
+
+class ClientTarget(NamedTuple):
+    client_cls: type[Client]
+    project_path: Path
+
+
+def find_client(path: Path) -> ClientTarget | None:
+    """Identify the appropriate client and project root for a given path."""
+
+    candidates = lang_clients.values()
+
+    for client_cls in candidates:
+        lang_config = client_cls.get_language_config()
+        if root := lang_config.find_project_root(path):
+            return ClientTarget(project_path=root, client_cls=client_cls)
+    return None
