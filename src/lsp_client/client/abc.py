@@ -90,6 +90,7 @@ class Client(
     initialization_options: dict[str, Any] = field(factory=dict)
     """Custom initialization options for the server."""
 
+    _server_capabilities: lsp_type.ServerCapabilities = field(init=False)
     _server: Server = field(init=False)
     _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
     document_state: DocumentStateManager = field(
@@ -159,6 +160,10 @@ class Client(
     @override
     def get_config_map(self) -> ConfigurationMap:
         return self._config
+
+    @override
+    def get_server_capabilities(self) -> lsp_type.ServerCapabilities:
+        return self._server_capabilities
 
     def get_server(self) -> Server:
         return self._server
@@ -288,7 +293,7 @@ class Client(
             lsp_type.InitializeRequest(id="initialize", params=params),
             schema=lsp_type.InitializeResponse,
         )
-        server_capabilities = result.capabilities
+        self._server_capabilities = result.capabilities
         server_info = result.server_info
 
         if __debug__:
@@ -297,7 +302,7 @@ class Client(
 
             # ensure all client capabilities are supported by the server
             if isinstance(self, CapabilityProtocol):
-                self.check_server_capability(server_capabilities)
+                self.check_server_capability(self._server_capabilities)
         else:
             logger.debug("Skip server check in optimized mode")
 

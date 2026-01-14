@@ -7,7 +7,7 @@ workspace management, configuration access, file operations, and LSP message han
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -16,7 +16,7 @@ import anyio
 
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.utils.config import ConfigurationMap
-from lsp_client.utils.types import AnyPath, Notification, Request, Response
+from lsp_client.utils.types import AnyPath, Notification, Request, Response, lsp_type
 from lsp_client.utils.uri import from_local_uri
 from lsp_client.utils.workspace import DEFAULT_WORKSPACE_DIR, Workspace
 
@@ -64,8 +64,12 @@ class CapabilityClientProtocol(DocumentEditProtocol, Protocol):
         """Get language-specific configuration for this client."""
 
     @abstractmethod
+    def get_server_capabilities(self) -> lsp_type.ServerCapabilities:
+        """Get the capabilities of the language server."""
+
+    @abstractmethod
     @asynccontextmanager
-    def open_files(self, *file_paths: AnyPath) -> AsyncGenerator[None]:
+    def open_files(self, *file_paths: AnyPath) -> AsyncIterator[None]:
         """Open files in the client.
 
         Args:
