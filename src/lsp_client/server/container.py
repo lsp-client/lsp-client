@@ -186,6 +186,7 @@ class ContainerServer(StreamServer):
                 mount = BindMount(
                     source=str(folder.path),
                     target=self.workdir.as_posix(),
+                    readonly=True,
                 )
                 mounts.append(mount)
             case folders:
@@ -193,6 +194,7 @@ class ContainerServer(StreamServer):
                     BindMount(
                         source=str(folder.path),
                         target=(self.workdir / folder.name).as_posix(),
+                        readonly=True,
                     )
                     for folder in folders
                 )
