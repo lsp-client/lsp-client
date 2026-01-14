@@ -53,17 +53,25 @@ class BindMount(MountBase):
         return parts
 
     @classmethod
-    def from_path(cls, path: Path) -> BindMount:
+    def from_path(
+        cls, path: Path, readonly: bool = False, target: str | None = None
+    ) -> BindMount:
         absolute_path = path.resolve()
+        source = str(absolute_path)
 
-        if absolute_path.drive:
-            raise ValueError(
-                f"Path '{absolute_path}' contains a drive letter, which is not supported "
-                "for same-path bind mounts in Linux containers. "
-                "On Windows, you must explicitly separate 'source' and 'target' paths."
-            )
+        if target is None:
+            posix_path = absolute_path.as_posix()
+            if absolute_path.drive:
+                # Handle Windows drive letters: C:/path -> /c/path
+                drive = absolute_path.drive.rstrip(":").lower()
+                path_without_drive = posix_path[len(absolute_path.drive) :]
+                if not path_without_drive.startswith("/"):
+                    path_without_drive = "/" + path_without_drive
+                target = f"/{drive}{path_without_drive}"
+            else:
+                target = posix_path
 
-        return cls(source=str(absolute_path), target=str(absolute_path))
+        return cls(source=source, target=target, readonly=readonly)
 
 
 @define
@@ -128,9 +136,6 @@ class ContainerServer(StreamServer):
     image: str
     """The container image to use."""
 
-    workdir: Path = Path("/workspace")
-    """The working directory inside the container."""
-
     mounts: list[Mount] = Factory(list)
     """List of extra mounts to be mounted inside the container."""
 
@@ -180,29 +185,17 @@ class ContainerServer(StreamServer):
             args.extend(("--name", self.container_name))
 
         mounts = list(self.mounts)
+        folders = workspace.to_folders()
 
-        match workspace.to_folders():
-            case [folder]:
-                mount = BindMount(
-                    source=str(folder.path),
-                    target=self.workdir.as_posix(),
-                    readonly=True,
-                )
-                mounts.append(mount)
-            case folders:
-                mounts.extend(
-                    BindMount(
-                        source=str(folder.path),
-                        target=(self.workdir / folder.name).as_posix(),
-                        readonly=True,
-                    )
-                    for folder in folders
-                )
+        mounts.extend(
+            BindMount.from_path(
+                folder.path, readonly=True, target=folder.path.as_posix()
+            )
+            for folder in folders
+        )
 
         for mount in mounts:
             args.extend(("--mount", _format_mount(mount)))
-
-        args.extend(("--workdir", self.workdir.as_posix()))
 
         if self.extra_container_args:
             args.extend(self.extra_container_args)

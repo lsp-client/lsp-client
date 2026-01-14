@@ -52,14 +52,12 @@ class TestContainerServer:
         server = ContainerServer(image="test-image")
         assert server.image == "test-image"
 
-    def test_container_server_default_workdir(self):
-        """Test that ContainerServer has default workdir."""
-        from pathlib import Path
-
+    def test_container_server_no_workdir(self):
+        """Test that ContainerServer no longer has workdir attribute."""
         from lsp_client.server.container import ContainerServer
 
         server = ContainerServer(image="test-image")
-        assert server.workdir == Path("/workspace")
+        assert not hasattr(server, "workdir")
 
     def test_container_server_default_backend(self):
         """Test that ContainerServer has default backend."""
