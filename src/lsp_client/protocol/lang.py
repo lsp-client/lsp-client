@@ -30,24 +30,35 @@ class LanguageConfig:
     exclude_files: list[str] = Factory(list)
     """Files that indicate a directory should not be considered a project root for this language."""
 
-    def _find_project_root(self, dir_path: Path) -> Path | None:
-        """Search upwards from a directory to locate the project root."""
-        for project_path in (dir_path, *dir_path.parents):
-            if any((project_path / excl).exists() for excl in self.exclude_files):
+    def _find_project_root(
+        self, dir_path: Path, cwd: Path | None = None
+    ) -> Path | None:
+        if cwd is not None and not dir_path.is_relative_to(cwd):
+            raise ValueError(f"dir_path {dir_path} is not relative to cwd {cwd}")
+
+        paths = [dir_path, *dir_path.parents]
+
+        if cwd is not None:
+            paths = reversed([p for p in paths if p.is_relative_to(cwd)])
+
+        for path in paths:
+            if any(list(path.glob(pattern)) for pattern in self.exclude_files):
+                if cwd is not None:
+                    continue
                 return None
-            if any((project_path / proj).exists() for proj in self.project_files):
-                return project_path
+
+            if any(list(path.glob(pattern)) for pattern in self.project_files):
+                return path
+
         return None
 
-    def find_project_root(self, path: Path) -> Path | None:
-        """
-        Find the project root for a given file or directory path.
+    def find_project_root(self, path: Path, cwd: Path | None = None) -> Path | None:
+        if cwd is not None and not path.is_relative_to(cwd):
+            raise ValueError(f"path {path} is not relative to cwd {cwd}")
 
-        Files must match one of the defined suffixes to be considered part of a project.
-        """
         if path.is_file():
             if not any(path.name.endswith(suffix) for suffix in self.suffixes):
                 return None
             path = path.parent
 
-        return self._find_project_root(path)
+        return self._find_project_root(path, cwd)
