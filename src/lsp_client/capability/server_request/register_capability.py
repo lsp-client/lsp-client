@@ -15,7 +15,7 @@ from lsp_client.utils.types import lsp_type
 
 
 @runtime_checkable
-class WithRespondCapabilityRegistration(
+class WithRespondRegisterCapability(
     ServerRequestHookProtocol,
     CapabilityClientProtocol,
     Protocol,
@@ -36,15 +36,19 @@ class WithRespondCapabilityRegistration(
     async def respond_register_capability(
         self, req: lsp_type.RegistrationRequest
     ) -> lsp_type.RegistrationResponse:
-        logger.debug("Received client/registerCapability request")
-        # Behavior not implemented as requested
+        # TODO properly handle dynamic registeration
+        methods = [registration.method for registration in req.params.registrations]
+        logger.debug("Received client/registerCapability request: {}", methods)
         return lsp_type.RegistrationResponse(id=req.id, result=None)
 
     async def respond_unregister_capability(
         self, req: lsp_type.UnregistrationRequest
     ) -> lsp_type.UnregistrationResponse:
-        logger.debug("Received client/unregisterCapability request")
-        # Behavior not implemented as requested
+        # TODO properly handle dynamic unregisteration
+        methods = [
+            unregistration.method for unregistration in req.params.unregisterations
+        ]
+        logger.debug("Received client/unregisterCapability request: {}", methods)
         return lsp_type.UnregistrationResponse(id=req.id, result=None)
 
     @override
