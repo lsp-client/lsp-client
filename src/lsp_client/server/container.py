@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal, final, override
 
 import anyio
+import xxhash
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
@@ -148,6 +149,9 @@ class ContainerServer(StreamServer):
     extra_container_args: list[str] | None = None
     """Extra arguments to pass to the container runtime."""
 
+    auto_remove: bool = True
+    """Whether to automatically remove the container when it exits."""
+
     _local: LocalServer = field(init=False)
 
     @property
@@ -164,6 +168,23 @@ class ContainerServer(StreamServer):
     async def kill(self) -> None:
         await self._local.kill()
 
+    def _generate_hash_name(self, workspace: Workspace) -> str:
+        seed = f"{self.image}:{workspace.id}"
+        path_hash = xxhash.xxh32_hexdigest(seed.encode(), seed=0)
+        return f"lsp-server-{path_hash}"
+
+    async def _container_exists(self, name: str) -> bool:
+        try:
+            await anyio.run_process(
+                [self.backend, "inspect", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (anyio.ProcessError, FileNotFoundError):
+            return False
+        else:
+            return True
+
     @override
     async def check_availability(self) -> None:
         try:
@@ -179,10 +200,16 @@ class ContainerServer(StreamServer):
             ) from e
 
     def format_args(self, workspace: Workspace) -> list[str]:
-        args = ["run", "--rm", "-i"]
+        args = ["run", "-i"]
+        if self.auto_remove:
+            args.append("--rm")
 
-        if self.container_name:
-            args.extend(("--name", self.container_name))
+        name = self.container_name
+        if not name and not self.auto_remove:
+            name = self._generate_hash_name(workspace)
+
+        if name:
+            args.extend(("--name", name))
 
         mounts = list(self.mounts)
         folders = workspace.to_folders()
@@ -206,8 +233,17 @@ class ContainerServer(StreamServer):
 
     @override
     async def setup(self, workspace: Workspace) -> None:
+        if not self.auto_remove:
+            name = self.container_name or self._generate_hash_name(workspace)
+            if await self._container_exists(name):
+                logger.debug("Reusing existing container: {}", name)
+                self._local = LocalServer(
+                    program=self.backend, args=["start", "-ai", name]
+                )
+                return
+
         args = self.format_args(workspace)
-        logger.debug("Running docker runtime with command: {}", args)
+        logger.debug("Running container runtime with command: {}", args)
         self._local = LocalServer(program=self.backend, args=args)
 
     @override
