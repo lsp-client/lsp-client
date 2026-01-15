@@ -31,6 +31,11 @@ class WithNotifyDidChangeWorkspaceFolders(
         super().register_workspace_capability(cap)
         cap.workspace_folders = True
 
+    @override
+    @classmethod
+    def check_server_capability(cls, cap: lsp_type.ServerCapabilities) -> None:
+        super().check_server_capability(cap)
+
     async def notify_did_change_workspace_folders(
         self,
         added: list[lsp_type.WorkspaceFolder],
@@ -38,6 +43,10 @@ class WithNotifyDidChangeWorkspaceFolders(
     ) -> None:
         """
         Notify the server that the workspace folders have changed.
+
+        Args:
+            added: Workspace folders that have been added to the workspace.
+            removed: Workspace folders that have been removed from the workspace.
         """
 
         return await self.notify(
