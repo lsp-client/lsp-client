@@ -55,6 +55,11 @@ class MockLSPClient(WithRespondApplyEdit):
             path = uri.replace("file://", "")
             self._files[path] = content
 
+        try:
+            self.document_state.update_content(uri, content)
+        except KeyError:
+            pass
+
     def from_uri(self, uri: str, *, relative: bool = True) -> Path:
         return Path(uri.replace("file://", ""))
 

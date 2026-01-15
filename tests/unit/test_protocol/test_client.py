@@ -44,6 +44,9 @@ class MockClient(CapabilityClientProtocol):
     async def write_file(self, uri: str, content: str) -> None:
         pass
 
+    async def read_file(self, file_path: AnyPath) -> str:
+        return ""
+
     async def request[R](self, req: Request, schema: type[Response[R]]) -> R:
         raise NotImplementedError
 

@@ -10,7 +10,7 @@ from attrs import define
 from loguru import logger
 
 from lsp_client.exception import EditApplicationError, VersionMismatchError
-from lsp_client.protocol import DocumentEditProtocol
+from lsp_client.protocol import CapabilityClientProtocol
 from lsp_client.utils.types import lsp_type
 from lsp_client.utils.uri import from_local_uri
 
@@ -129,7 +129,7 @@ class WorkspaceEditApplicator:
         client: Client instance with document state and file I/O operations
     """
 
-    client: DocumentEditProtocol
+    client: CapabilityClientProtocol
 
     async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:
         """
@@ -195,30 +195,22 @@ class WorkspaceEditApplicator:
                     actual_version=actual_version,
                 )
 
-        # Read, apply, and write edits
+        # Read, apply, and write edits (state sync handled automatically by write_file)
         file_path = self.client.from_uri(uri, relative=False)
         content = await self.client.read_file(file_path)
         new_content = apply_text_edits(content, edit.edits)
         await self.client.write_file(uri, new_content)
-
-        # Update document state if tracked
-        with suppress(KeyError):
-            _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_changes(
         self, changes: Mapping[str, Sequence[lsp_type.TextEdit]]
     ) -> None:
         """Apply changes map (deprecated format)."""
         for uri, edits in changes.items():
-            # Read, apply, and write edits
+            # Read, apply, and write edits (state sync handled automatically by write_file)
             file_path = self.client.from_uri(uri, relative=False)
             content = await self.client.read_file(file_path)
             new_content = apply_text_edits(content, edits)
             await self.client.write_file(uri, new_content)
-
-            # Update document state if tracked
-            with suppress(KeyError):
-                _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_create_file(self, change: lsp_type.CreateFile) -> None:
         """Apply CreateFile resource operation."""

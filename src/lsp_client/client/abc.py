@@ -20,7 +20,6 @@ from lsp_client.capability.build import (
 )
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
 from lsp_client.capability.server_request import WithRespondRegisterCapability
-from lsp_client.client.buffer import LSPFileBuffer
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.client.exception import ClientRuntimeError
 from lsp_client.jsonrpc.convert import (
@@ -94,7 +93,6 @@ class Client(
     """Custom initialization options for the server."""
 
     _server: Server = field(init=False)
-    _buffer: LSPFileBuffer = field(factory=LSPFileBuffer, init=False)
     document_state: DocumentStateManager = field(
         factory=DocumentStateManager, init=False
     )
@@ -195,60 +193,92 @@ class Client(
             yield
             return
 
-        buffer_items = await self._buffer.open(file_uris)
+        new_docs = await self.document_state.open(file_uris)
         async with asyncer.create_task_group() as tg:
-            for item in buffer_items:
-                try:
-                    # Check if the document is already registered
-                    self.document_state.get_version(item.file_uri)
-                except KeyError:
-                    self.document_state.register(item.file_uri, item.content, version=0)
-                    tg.soonify(self.notify_text_document_opened)(
-                        file_path=item.file_path,
-                        file_content=item.content,
-                    )
+            for uri, state in new_docs.items():
+                tg.soonify(self.notify_text_document_opened)(
+                    file_path=from_local_uri(uri),
+                    file_content=state.content,
+                )
 
         try:
             yield
         finally:
-            closed_items = self._buffer.close(file_uris)
+            closed_uris = self.document_state.close(file_uris)
 
             async with asyncer.create_task_group() as tg:
-                for item in closed_items:
-                    self.document_state.unregister(item.file_uri)
-                    tg.soonify(self.notify_text_document_closed)(item.file_path)
+                for uri in closed_uris:
+                    tg.soonify(self.notify_text_document_closed)(from_local_uri(uri))
+
+    @override
+    async def read_file(self, file_path: AnyPath) -> str:
+        """Read the content of a file in the workspace.
+
+        If the file is currently tracked (open), returns the in-memory content.
+        Otherwise, reads from disk.
+        """
+        uri = self.as_uri(file_path)
+        try:
+            return self.document_state.get_content(uri)
+        except KeyError:
+            path = self.from_uri(uri, relative=False)
+            return await anyio.Path(path).read_text()
 
     async def write_file(self, uri: str, content: str) -> None:
-        """Write the given text content to a file identified by a local file URI.
+        """Write text content to a file and automatically sync document state.
 
-        This resolves the provided ``uri`` to a local filesystem path using
-        :func:`from_local_uri` and writes ``content`` to that path, replacing any
-        existing file contents. The write is performed asynchronously via
-        :class:`anyio.Path`.
+        This method writes the content to disk and automatically handles:
+        - Updating in-memory document state (for tracked files)
+        - Incrementing document version
+        - Sending didChange notification to LSP server
 
         Parameters
         ----------
         uri:
-            The local file URI of the target document to write to. It must be a
-            URI that :func:`from_local_uri` can resolve to a filesystem path.
+            The local file URI of the target document.
         content:
-            The full text content to be written to the target file.
+            The full text content to be written.
 
         Raises
         ------
         OSError
-            If writing to the underlying filesystem fails (for example due to
-            permission issues, missing directories, or other I/O errors).
+            If writing to the filesystem fails.
 
         Notes
         -----
-        This method only updates the on-disk file and does **not** modify the
-        in-memory document state or buffer (for example, ``DocumentStateManager``
-        or ``LSPFileBuffer``). Callers are responsible for keeping any such
-        in-memory representations in sync with the written content.
+        - For tracked files (opened via open_files), automatically updates state and notifies server
+        - For non-tracked files, only writes to disk
+        - No manual state management required
+
+        Examples
+        --------
+        ::
+
+            async with client.open_files("example.py") as f:
+                # Read current content
+                content = await client.read_file("example.py")
+                # Modify content
+                new_content = content.replace("old", "new")
+                # Write and auto-sync (state + LSP notification handled automatically)
+                await client.write_file(client.as_uri("example.py"), new_content)
         """
         path = from_local_uri(uri)
-        _ = await anyio.Path(path).write_text(content)
+        await anyio.Path(path).write_text(content)
+
+        # Auto-sync state for tracked documents
+        try:
+            new_version = self.document_state.update_content(uri, content)
+            file_path = self.from_uri(uri, relative=False)
+            await self.notify_text_document_changed(
+                file_path=file_path,
+                content_changes=[
+                    lsp_type.TextDocumentContentChangeWholeDocument(text=content)
+                ],
+                version=new_version,
+            )
+        except KeyError:
+            # Document not tracked, only disk write needed
+            pass
 
     @override
     async def request[R](

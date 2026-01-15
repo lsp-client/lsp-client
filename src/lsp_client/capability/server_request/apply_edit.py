@@ -8,7 +8,6 @@ from loguru import logger
 from lsp_client.exception import EditApplicationError
 from lsp_client.protocol import (
     CapabilityClientProtocol,
-    DocumentEditProtocol,
     ServerRequestHook,
     ServerRequestHookProtocol,
     ServerRequestHookRegistry,
@@ -23,7 +22,6 @@ class WithRespondApplyEdit(
     WorkspaceCapabilityProtocol,
     ServerRequestHookProtocol,
     CapabilityClientProtocol,
-    DocumentEditProtocol,
     Protocol,
 ):
     """
