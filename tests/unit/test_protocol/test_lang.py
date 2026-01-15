@@ -105,7 +105,7 @@ def test_find_project_root_raises_when_path_not_relative_to_cwd(
     file_path.parent.mkdir()
     file_path.write_text("pass\n")
 
-    with pytest.raises(ValueError, match="is not relative to cwd"):
+    with pytest.raises(ValueError, match="is not relative to the specified"):
         python_config.find_project_root(file_path, cwd=cwd)
 
 
