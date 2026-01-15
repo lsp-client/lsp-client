@@ -4,6 +4,7 @@ from typing import Final
 
 from ..diagnostic.workspace import WithWorkspaceDiagnostic
 from .apply_edit import WithRespondApplyEdit
+from .capability_registration import WithRespondCapabilityRegistration
 from .configuration import WithRespondConfigurationRequest
 from .inlay_hint_refresh import WithRespondInlayHintRefresh
 from .show_document_request import WithRespondShowDocumentRequest
@@ -18,10 +19,12 @@ capabilities: Final = (
     WithRespondShowDocumentRequest,
     WithRespondShowMessageRequest,
     WithRespondWorkspaceFoldersRequest,
+    WithRespondCapabilityRegistration,
 )
 
 __all__ = [
     "WithRespondApplyEdit",
+    "WithRespondCapabilityRegistration",
     "WithRespondConfigurationRequest",
     "WithRespondInlayHintRefresh",
     "WithRespondShowDocumentRequest",

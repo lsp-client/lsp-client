@@ -19,6 +19,7 @@ from lsp_client.capability.build import (
     build_server_request_hooks,
 )
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
+from lsp_client.capability.server_request import WithRespondCapabilityRegistration
 from lsp_client.client.buffer import LSPFileBuffer
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.client.exception import ClientRuntimeError
@@ -49,6 +50,7 @@ from lsp_client.utils.workspace import (
 class Client(
     # text sync support is mandatory
     WithNotifyTextDocumentSynchronize,
+    WithRespondCapabilityRegistration,
     CapabilityClientProtocol,
     AsyncContextManagerMixin,
     ABC,
