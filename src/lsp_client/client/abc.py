@@ -21,6 +21,7 @@ from lsp_client.capability.build import (
 from lsp_client.capability.notification import WithNotifyTextDocumentSynchronize
 from lsp_client.client.buffer import LSPFileBuffer
 from lsp_client.client.document_state import DocumentStateManager
+from lsp_client.client.exception import ClientRuntimeError
 from lsp_client.jsonrpc.convert import (
     notification_serialize,
     request_deserialize,
@@ -273,11 +274,20 @@ class Client(
                         req = request_deserialize(req, hook.cls)
                         resp = await hook.execute(req)
                         tx.send(response_serialize(resp))
+                    else:
+                        # unhandled server request will block the server
+                        raise ClientRuntimeError(
+                            self, f"Unhandled server request method: {req['method']}"
+                        )
                 case noti:
                     if noti_hooks := hooks.get_notification_hooks(noti["method"]):
                         for hook in noti_hooks:
                             noti = request_deserialize(noti, hook.cls)
                             tg.soonify(hook.execute)(noti)
+                    else:
+                        logger.warning(
+                            "Unhandled server notification method: {}", noti["method"]
+                        )
 
         async with asyncer.create_task_group() as tg:
             async for req in receiver:
