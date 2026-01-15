@@ -136,15 +136,18 @@ class Client(
     async def run_server(
         self,
     ) -> AsyncGenerator[tuple[Server, Receiver[ServerRequest]]]:
+        logger.info("Starting LSP server")
         async with channel[ServerRequest].create() as (sender, receiver):
             errors: list[ServerRuntimeError] = []
             async for candidate in self._iter_candidate_servers():
+                logger.debug("Attempting to start server: {}", type(candidate))
                 try:
                     async with candidate.run(self._workspace, sender=sender) as server:
+                        logger.info("Successfully started server: {}", type(server))
                         yield server, receiver
+                        logger.debug("Server {} stopped", server)
                         return
                 except ServerRuntimeError as e:
-                    logger.debug("Failed to start server {}: {}", candidate, e)
                     errors.append(e)
 
             raise ExceptionGroup(
