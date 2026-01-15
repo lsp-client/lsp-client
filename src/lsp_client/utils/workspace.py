@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Final
 
 import attrs
+import xxhash
 
 from .types import AnyPath, lsp_type
 from .uri import from_local_uri
@@ -52,6 +53,20 @@ class Workspace(dict[str, WorkspaceFolder]):
 
     def to_folders(self) -> list[WorkspaceFolder]:
         return list(self.values())
+
+    @cached_property
+    def id(self) -> str:
+        """
+        Return a deterministic hash-based identifier for the workspace.
+
+        The identifier is computed by hashing the sorted workspace folder
+        names and their URIs, ensuring a stable value for the same set
+        of folders regardless of insertion order.
+        """
+        items = sorted(self.items())
+        return xxhash.xxh32_hexdigest(
+            "|".join(f"{name}:{folder.uri}" for name, folder in items).encode()
+        )
 
 
 DEFAULT_WORKSPACE_PATH = Path.cwd()

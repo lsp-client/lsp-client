@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal, final, override
 
 import anyio
+import xxhash
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
@@ -148,6 +149,9 @@ class ContainerServer(StreamServer):
     extra_container_args: list[str] | None = None
     """Extra arguments to pass to the container runtime."""
 
+    auto_remove: bool = True
+    """Whether to automatically remove the container when it exits."""
+
     _local: LocalServer = field(init=False)
 
     @property
@@ -164,6 +168,104 @@ class ContainerServer(StreamServer):
     async def kill(self) -> None:
         await self._local.kill()
 
+    def _generate_hash_name(self, workspace: Workspace) -> str:
+        """Generate a deterministic container name for a workspace.
+
+        The name is derived from the container image and the workspace ID so
+        that the same workspace gets the same container name across sessions,
+        enabling container reuse when auto_remove is disabled.
+        """
+        hash_input = f"{self.image}:{workspace.id}"
+        path_hash = xxhash.xxh32_hexdigest(hash_input.encode(), seed=0)
+        return f"lsp-server-{path_hash}"
+
+    async def _container_exists(self, name: str) -> bool:
+        """
+        Return True only if a container with the given name exists and is in a state
+        suitable for reuse (i.e. can be started with `start -ai`).
+        """
+        try:
+            # Query the container's state; Docker/Podman expose it via .State.Status
+            result = await anyio.run_process(
+                [self.backend, "inspect", "--format={{.State.Status}}", name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except (anyio.ProcessError, FileNotFoundError):
+            # Container does not exist or backend is unavailable.
+            return False
+
+        state = (result.stdout or b"").decode().strip().lower()
+        if state in ("exited", "created"):
+            return True
+
+        logger.debug(
+            "Container '{}' exists but is in state '{}' which is not suitable for reuse",
+            name,
+            state or "<unknown>",
+        )
+        return False
+
+    async def _get_container_mounts(self, name: str) -> list[str]:
+        """
+        Get the list of mount targets from an existing container.
+
+        Returns a list of target paths that are mounted in the container.
+        """
+        try:
+            result = await anyio.run_process(
+                [
+                    self.backend,
+                    "inspect",
+                    "--format={{range .Mounts}}{{.Destination}}\n{{end}}",
+                    name,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except (anyio.ProcessError, FileNotFoundError):
+            return []
+
+        output = (result.stdout or b"").decode().strip()
+        if not output:
+            return []
+
+        return [line.strip() for line in output.split("\n") if line.strip()]
+
+    def _get_expected_mount_targets(self, workspace: Workspace) -> set[str]:
+        """
+        Get the set of expected mount targets for the current workspace.
+
+        Returns a set of target paths that should be mounted.
+        """
+        mounts = list(self.mounts)
+        folders = workspace.to_folders()
+
+        mounts.extend(
+            BindMount.from_path(
+                folder.path, readonly=True, target=folder.path.as_posix()
+            )
+            for folder in folders
+        )
+
+        targets = set()
+        for mount in mounts:
+            if isinstance(mount, Path):
+                mount_obj = BindMount.from_path(mount)
+                targets.add(mount_obj.target)
+            elif isinstance(mount, str):
+                # Parse mount string to extract target
+                # Format: type=...,source=...,target=...,readonly
+                parts = mount.split(",")
+                for part in parts:
+                    if part.startswith("target="):
+                        targets.add(part.split("=", 1)[1])
+                        break
+            else:
+                targets.add(mount.target)
+
+        return targets
+
     @override
     async def check_availability(self) -> None:
         try:
@@ -179,10 +281,16 @@ class ContainerServer(StreamServer):
             ) from e
 
     def format_args(self, workspace: Workspace) -> list[str]:
-        args = ["run", "--rm", "-i"]
+        args = ["run", "-i"]
+        if self.auto_remove:
+            args.append("--rm")
 
-        if self.container_name:
-            args.extend(("--name", self.container_name))
+        name = self.container_name
+        if not name and not self.auto_remove:
+            name = self._generate_hash_name(workspace)
+
+        if name:
+            args.extend(("--name", name))
 
         mounts = list(self.mounts)
         folders = workspace.to_folders()
@@ -206,8 +314,40 @@ class ContainerServer(StreamServer):
 
     @override
     async def setup(self, workspace: Workspace) -> None:
+        if not self.auto_remove:
+            name = self.container_name or self._generate_hash_name(workspace)
+            if await self._container_exists(name):
+                # Validate that the existing container has the correct mounts
+                existing_mounts = set(await self._get_container_mounts(name))
+                expected_mounts = self._get_expected_mount_targets(workspace)
+
+                if existing_mounts == expected_mounts:
+                    logger.debug("Reusing existing container: {}", name)
+                    self._local = LocalServer(
+                        program=self.backend, args=["start", "-ai", name]
+                    )
+                    return
+                logger.debug(
+                    "Container '{}' exists but has incorrect mounts. "
+                    "Expected: {}, Got: {}. Removing and recreating.",
+                    name,
+                    expected_mounts,
+                    existing_mounts,
+                )
+                # Remove the container with incorrect mounts
+                try:
+                    await anyio.run_process(
+                        [self.backend, "rm", "-f", name],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except (anyio.ProcessError, FileNotFoundError):
+                    logger.warning(
+                        "Failed to remove container '{}' with incorrect mounts", name
+                    )
+
         args = self.format_args(workspace)
-        logger.debug("Running docker runtime with command: {}", args)
+        logger.debug("Running container runtime with command: {}", args)
         self._local = LocalServer(program=self.backend, args=args)
 
     @override
