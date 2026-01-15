@@ -55,10 +55,9 @@ class MockLSPClient(WithRespondApplyEdit):
             path = uri.replace("file://", "")
             self._files[path] = content
 
-        try:
-            self.document_state.update_content(uri, content)
-        except KeyError:
-            pass
+        # In these tests the document might not yet be tracked in document_state;
+        # if so, we ignore the missing entry rather than failing the write.
+        self.document_state.update_content(uri, content)
 
     def from_uri(self, uri: str, *, relative: bool = True) -> Path:
         return Path(uri.replace("file://", ""))
@@ -369,6 +368,5 @@ async def test_apply_edit_with_resource_operations():
         assert await anyio.Path(new_file).read_text() == "modified content\n"
 
         # Verify document state updated
-        with pytest.raises(KeyError):
-            client.document_state.get_version(uri)
+        assert client.document_state.get_version(uri) is None
         assert client.document_state.get_version(new_file.as_uri()) == 1

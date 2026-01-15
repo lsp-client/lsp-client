@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from lsp_client.client.document_state import DocumentState, DocumentStateManager
@@ -24,8 +26,7 @@ def test_unregister_document():
     manager.register("file:///test.py", "print('hello')")
     manager.unregister("file:///test.py")
 
-    with pytest.raises(KeyError):
-        manager.get_version("file:///test.py")
+    assert manager.get_version("file:///test.py") is None
 
 
 def test_increment_version():
@@ -63,40 +64,101 @@ def test_multiple_documents():
 
 def test_get_version_nonexistent():
     manager = DocumentStateManager()
-    with pytest.raises(KeyError, match=r"Document .* not found"):
-        manager.get_version("file:///nonexistent.py")
+    assert manager.get_version("file:///nonexistent.py") is None
 
 
 def test_get_content_nonexistent():
     manager = DocumentStateManager()
-    with pytest.raises(KeyError, match=r"Document .* not found"):
-        manager.get_content("file:///nonexistent.py")
+    assert manager.get_content("file:///nonexistent.py") is None
 
 
 def test_increment_version_nonexistent():
     manager = DocumentStateManager()
-    with pytest.raises(KeyError, match=r"Document .* not found"):
-        manager.increment_version("file:///nonexistent.py")
+    assert manager.increment_version("file:///nonexistent.py") is None
 
 
 def test_update_content_nonexistent():
     manager = DocumentStateManager()
-    with pytest.raises(KeyError, match=r"Document .* not found"):
-        manager.update_content("file:///nonexistent.py", "new content")
+    assert manager.update_content("file:///nonexistent.py", "new content") is None
 
 
 def test_register_document_twice():
-    """Test that registering a document twice raises KeyError."""
+    """Test that registering a document twice returns None."""
     manager = DocumentStateManager()
     manager.register("file:///test.py", "print('hello')", version=0)
 
-    with pytest.raises(KeyError, match=r"Document .* is already registered"):
-        manager.register("file:///test.py", "print('world')", version=0)
+    assert manager.register("file:///test.py", "print('world')", version=0) is None
 
 
 def test_unregister_nonexistent_document():
-    """Test that unregistering a non-existent document raises KeyError."""
+    """Test that unregistering a non-existent document returns None."""
     manager = DocumentStateManager()
+    assert manager.unregister("file:///nonexistent.py") is None
 
-    with pytest.raises(KeyError, match=r"Document .* not found"):
-        manager.unregister("file:///nonexistent.py")
+
+@pytest.mark.anyio
+async def test_open_multiple_uris(tmp_path: Path):
+    """Test opening multiple URIs tracking state and reference counts."""
+    manager = DocumentStateManager()
+    f1 = tmp_path / "f1.py"
+    f2 = tmp_path / "f2.py"
+    f1.write_text("content1")
+    f2.write_text("content2")
+    u1, u2 = f1.as_uri(), f2.as_uri()
+
+    new_docs = await manager.open([u1, u2])
+    assert len(new_docs) == 2
+    assert new_docs[u1].content == "content1"
+    assert new_docs[u2].content == "content2"
+    assert manager._ref_counts[u1] == 1
+    assert manager._ref_counts[u2] == 1
+
+
+@pytest.mark.anyio
+async def test_open_already_open_files(tmp_path: Path):
+    """Test that opening already open files only increments reference counts."""
+    manager = DocumentStateManager()
+    f1 = tmp_path / "f1.py"
+    f1.write_text("content1")
+    u1 = f1.as_uri()
+
+    await manager.open([u1])
+    new_docs = await manager.open([u1])
+    assert len(new_docs) == 0
+    assert manager._ref_counts[u1] == 2
+
+
+def test_close_reference_counting():
+    """Test closing files with various reference counts."""
+    manager = DocumentStateManager()
+    u1 = "file:///test.py"
+    manager.register(u1, "content")
+    # Manual registration starts with ref count 1
+    manager._ref_counts[u1] = 2
+
+    # First close: ref count 2 -> 1, not truly closed
+    closed = manager.close([u1])
+    assert len(closed) == 0
+    assert manager._ref_counts[u1] == 1
+    assert u1 in manager._states
+
+    # Second close: ref count 1 -> 0, truly closed
+    closed = manager.close([u1])
+    assert len(closed) == 1
+    assert closed[0] == u1
+    assert u1 not in manager._ref_counts
+    assert u1 not in manager._states
+
+
+def test_close_zero_or_negative_ref_count():
+    """Test closing URIs that already have zero or negative reference counts."""
+    manager = DocumentStateManager()
+    u1 = "file:///test.py"
+    manager.register(u1, "content")
+    manager._ref_counts[u1] = 0
+
+    closed = manager.close([u1])
+    assert len(closed) == 1
+    assert closed[0] == u1
+    assert u1 not in manager._ref_counts
+    assert u1 not in manager._states

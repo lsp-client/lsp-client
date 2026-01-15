@@ -446,9 +446,7 @@ async def test_rename_file_with_document_state():
 
         await applicator.apply_workspace_edit(edit)
 
-        with pytest.raises(KeyError):
-            client.document_state.get_version(old_uri)
-
+        assert client.document_state.get_version(old_uri) is None
         assert client.document_state.get_version(new_uri) == 5
         assert client.document_state.get_content(new_uri) == "content"
 
@@ -489,8 +487,7 @@ async def test_delete_file_with_document_state():
 
         await applicator.apply_workspace_edit(edit)
 
-        with pytest.raises(KeyError):
-            client.document_state.get_version(uri)
+        assert client.document_state.get_version(uri) is None
 
 
 @pytest.mark.asyncio

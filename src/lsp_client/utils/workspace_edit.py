@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import suppress
 
 import anyio
 import anyio.to_thread
@@ -176,13 +175,13 @@ class WorkspaceEditApplicator:
 
         # Validate version if specified
         if expected_version is not None:
-            try:
-                actual_version = self.client.get_document_state().get_version(uri)
-            except KeyError as e:
+            if (
+                actual_version := self.client.get_document_state().get_version(uri)
+            ) is None:
                 raise EditApplicationError(
                     message=f"Document {uri} not open in client",
                     uri=uri,
-                ) from e
+                )
 
             if actual_version != expected_version:
                 raise VersionMismatchError(
@@ -289,11 +288,11 @@ class WorkspaceEditApplicator:
         logger.debug(f"Renamed file: {old_uri} -> {new_uri}")
 
         # Update document state if tracked
-        with suppress(KeyError):
-            content = self.client.get_document_state().get_content(old_uri)
-            version = self.client.get_document_state().get_version(old_uri)
-            self.client.get_document_state().unregister(old_uri)
-            self.client.get_document_state().register(new_uri, content, version=version)
+        doc_state = self.client.get_document_state()
+        if (content := doc_state.get_content(old_uri)) is not None:
+            version = doc_state.get_version(old_uri) or 0
+            doc_state.unregister(old_uri)
+            doc_state.register(new_uri, content, version=version)
 
     async def _apply_delete_file(self, change: lsp_type.DeleteFile) -> None:
         """Apply DeleteFile resource operation."""
@@ -336,5 +335,4 @@ class WorkspaceEditApplicator:
             logger.debug(f"Deleted file: {uri}")
 
         # Update document state if tracked
-        with suppress(KeyError):
-            self.client.get_document_state().unregister(uri)
+        self.client.get_document_state().unregister(uri)

@@ -218,11 +218,11 @@ class Client(
         Otherwise, reads from disk.
         """
         uri = self.as_uri(file_path)
-        try:
-            return self.document_state.get_content(uri)
-        except KeyError:
-            path = self.from_uri(uri, relative=False)
-            return await anyio.Path(path).read_text()
+        if (content := self.document_state.get_content(uri)) is not None:
+            return content
+
+        path = self.from_uri(uri, relative=False)
+        return await anyio.Path(path).read_text()
 
     async def write_file(self, uri: str, content: str) -> None:
         """Write text content to a file and automatically sync document state.
@@ -248,13 +248,12 @@ class Client(
         -----
         - For tracked files (opened via open_files), automatically updates state and notifies server
         - For non-tracked files, only writes to disk
-        - No manual state management required
 
         Examples
         --------
         ::
 
-            async with client.open_files("example.py") as f:
+            async with client.open_files("example.py"):
                 # Read current content
                 content = await client.read_file("example.py")
                 # Modify content
@@ -265,9 +264,9 @@ class Client(
         path = from_local_uri(uri)
         await anyio.Path(path).write_text(content)
 
-        # Auto-sync state for tracked documents
-        try:
-            new_version = self.document_state.update_content(uri, content)
+        if (
+            new_version := self.document_state.update_content(uri, content)
+        ) is not None:
             file_path = self.from_uri(uri, relative=False)
             await self.notify_text_document_changed(
                 file_path=file_path,
@@ -276,9 +275,6 @@ class Client(
                 ],
                 version=new_version,
             )
-        except KeyError:
-            # Document not tracked, only disk write needed
-            pass
 
     @override
     async def request[R](

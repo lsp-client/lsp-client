@@ -64,7 +64,6 @@ class DocumentStateManager:
         new_states: dict[str, DocumentState] = {}
 
         async def read_file(uri: str) -> None:
-            # TODO: Handle IO errors gracefully?
             path = from_local_uri(uri)
             content_bytes = await anyio.Path(path).read_bytes()
             content = content_bytes.decode("utf-8")
@@ -101,7 +100,9 @@ class DocumentStateManager:
 
         return closed_uris
 
-    def register(self, uri: str, content: str, version: int = 0) -> None:
+    def register(
+        self, uri: str, content: str, version: int = 0
+    ) -> DocumentState | None:
         """
         Register a newly opened document manually.
 
@@ -110,34 +111,36 @@ class DocumentStateManager:
             content: Initial document content
             version: Initial version (defaults to 0)
 
-        Raises:
-            KeyError: If the document URI is already registered
+        Returns:
+            The newly created DocumentState, or None if the URI is already registered.
         """
         if uri in self._states:
-            raise KeyError(f"Document {uri} is already registered in state manager")
-        self._states[uri] = DocumentState(content=content, version=version)
+            return None
+        state = DocumentState(content=content, version=version)
+        self._states[uri] = state
         # Manual registration implies a reference count of 1
         self._ref_counts[uri] = 1
+        return state
 
-    def unregister(self, uri: str) -> None:
+    def unregister(self, uri: str) -> DocumentState | None:
         """
         Unregister a closed document.
 
         Args:
             uri: Document URI
 
-        Raises:
-            KeyError: If document URI is not registered
+        Returns:
+            The removed DocumentState, or None if the URI was not registered.
         """
         if uri in self._states:
-            del self._states[uri]
+            state = self._states.pop(uri)
             # Force cleanup ref count
             if uri in self._ref_counts:
                 del self._ref_counts[uri]
-            return
-        raise KeyError(f"Document {uri} not found in state manager")
+            return state
+        return None
 
-    def get_version(self, uri: str) -> int:
+    def get_version(self, uri: str) -> int | None:
         """
         Get current version of a document.
 
@@ -145,16 +148,13 @@ class DocumentStateManager:
             uri: Document URI
 
         Returns:
-            Current version number
-
-        Raises:
-            KeyError: If document URI is not registered
+            Current version number, or None if not registered.
         """
         if state := self._states.get(uri):
             return state.version
-        raise KeyError(f"Document {uri} not found in state manager")
+        return None
 
-    def get_content(self, uri: str) -> str:
+    def get_content(self, uri: str) -> str | None:
         """
         Get current content of a document.
 
@@ -162,16 +162,13 @@ class DocumentStateManager:
             uri: Document URI
 
         Returns:
-            Current document content
-
-        Raises:
-            KeyError: If document URI is not registered
+            Current document content, or None if not registered.
         """
         if state := self._states.get(uri):
             return state.content
-        raise KeyError(f"Document {uri} not found in state manager")
+        return None
 
-    def increment_version(self, uri: str) -> int:
+    def increment_version(self, uri: str) -> int | None:
         """
         Increment version and return the new version.
 
@@ -179,10 +176,7 @@ class DocumentStateManager:
             uri: Document URI
 
         Returns:
-            New version number after increment
-
-        Raises:
-            KeyError: If document URI is not registered
+            New version number after increment, or None if not registered.
         """
         if state := self._states.get(uri):
             new_version = state.version + 1
@@ -190,9 +184,9 @@ class DocumentStateManager:
                 content=state.content, version=new_version
             )
             return new_version
-        raise KeyError(f"Document {uri} not found in state manager")
+        return None
 
-    def update_content(self, uri: str, content: str) -> int:
+    def update_content(self, uri: str, content: str) -> int | None:
         """
         Update content and increment version atomically.
 
@@ -201,13 +195,10 @@ class DocumentStateManager:
             content: New document content
 
         Returns:
-            New version number after update
-
-        Raises:
-            KeyError: If document URI is not registered
+            New version number after update, or None if not registered.
         """
         if state := self._states.get(uri):
             new_version = state.version + 1
             self._states[uri] = DocumentState(content=content, version=new_version)
             return new_version
-        raise KeyError(f"Document {uri} not found in state manager")
+        return None
