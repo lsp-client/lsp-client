@@ -169,21 +169,42 @@ class ContainerServer(StreamServer):
         await self._local.kill()
 
     def _generate_hash_name(self, workspace: Workspace) -> str:
-        seed = f"{self.image}:{workspace.id}"
-        path_hash = xxhash.xxh32_hexdigest(seed.encode(), seed=0)
+        """Generate a deterministic container name for a workspace.
+
+        The name is derived from the container image and the workspace ID so
+        that the same workspace gets the same container name across sessions,
+        enabling container reuse when auto_remove is disabled.
+        """
+        hash_input = f"{self.image}:{workspace.id}"
+        path_hash = xxhash.xxh32_hexdigest(hash_input.encode(), seed=0)
         return f"lsp-server-{path_hash}"
 
     async def _container_exists(self, name: str) -> bool:
+        """
+        Return True only if a container with the given name exists and is in a state
+        suitable for reuse (i.e. can be started with `start -ai`).
+        """
         try:
-            await anyio.run_process(
-                [self.backend, "inspect", name],
-                stdout=subprocess.DEVNULL,
+            # Query the container's state; Docker/Podman expose it via .State.Status
+            result = await anyio.run_process(
+                [self.backend, "inspect", "--format={{.State.Status}}", name],
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
         except (anyio.ProcessError, FileNotFoundError):
+            # Container does not exist or backend is unavailable.
             return False
-        else:
+
+        state = (result.stdout or b"").decode().strip().lower()
+        if state in ("exited", "created"):
             return True
+
+        logger.debug(
+            "Container '{}' exists but is in state '{}' which is not suitable for reuse",
+            name,
+            state or "<unknown>",
+        )
+        return False
 
     @override
     async def check_availability(self) -> None:
