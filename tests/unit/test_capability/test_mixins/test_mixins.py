@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from lsp_client.capability.build import build_client_capabilities
+from lsp_client.capability.notification.did_change_workspace_folders import (
+    WithNotifyDidChangeWorkspaceFolders,
+)
 from lsp_client.capability.notification.text_document_synchronize import (
     WithNotifyTextDocumentSynchronize,
 )
@@ -34,3 +37,12 @@ def test_mixin_synchronization():
     assert capabilities.text_document is not None
     assert capabilities.text_document.synchronization is not None
     assert capabilities.text_document.synchronization.did_save is True
+
+
+def test_mixin_did_change_workspace_folders():
+    class WorkspaceFoldersClient(WithNotifyDidChangeWorkspaceFolders):
+        pass
+
+    capabilities = build_client_capabilities(WorkspaceFoldersClient)
+    assert capabilities.workspace is not None
+    assert capabilities.workspace.workspace_folders is True
