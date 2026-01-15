@@ -54,19 +54,19 @@ async def test_open_files_nested_same_file(tmp_path: Path):
 
     async with client.open_files(file_path):
         assert uri in client.document_state._states
-        assert client._buffer._ref_count[uri] == 1
+        assert client.document_state._ref_counts[uri] == 1
 
         async with client.open_files(file_path):
-            assert client._buffer._ref_count[uri] == 2
+            assert client.document_state._ref_counts[uri] == 2
             # Should still be registered (not registered again)
             assert uri in client.document_state._states
 
         # After nested close, ref count should be 1 and still registered
-        assert client._buffer._ref_count[uri] == 1
+        assert client.document_state._ref_counts[uri] == 1
         assert uri in client.document_state._states
 
     # After all closed, should be fully cleaned up
-    assert client._buffer._ref_count[uri] == 0
+    assert client.document_state._ref_counts[uri] == 0
     assert uri not in client.document_state._states
 
 
@@ -90,7 +90,7 @@ async def test_open_files_concurrent_same_file(tmp_path: Path):
         for _ in range(5):
             tg.soonify(worker)()
 
-    assert client._buffer._ref_count[uri] == 0
+    assert client.document_state._ref_counts[uri] == 0
     assert uri not in client.document_state._states
 
 
@@ -109,11 +109,11 @@ async def test_open_files_mixed_files(tmp_path: Path):
     async with client.open_files(f1):
         assert u1 in client.document_state._states
         async with client.open_files(f1, f2):
-            assert client._buffer._ref_count[u1] == 2
-            assert client._buffer._ref_count[u2] == 1
+            assert client.document_state._ref_counts[u1] == 2
+            assert client.document_state._ref_counts[u2] == 1
             assert u2 in client.document_state._states
 
-        assert client._buffer._ref_count[u1] == 1
+        assert client.document_state._ref_counts[u1] == 1
         assert u2 not in client.document_state._states
 
     assert u1 not in client.document_state._states

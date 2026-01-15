@@ -15,7 +15,7 @@ from .capability import (
     WindowCapabilityProtocol,
     WorkspaceCapabilityProtocol,
 )
-from .client import CapabilityClientProtocol, DocumentEditProtocol
+from .client import CapabilityClientProtocol
 from .hook import (
     ServerNotificationHook,
     ServerNotificationHookExecutor,
@@ -28,7 +28,6 @@ from .hook import (
 __all__ = [
     "CapabilityClientProtocol",
     "CapabilityProtocol",
-    "DocumentEditProtocol",
     "ExperimentalCapabilityProtocol",
     "GeneralCapabilityProtocol",
     "NotebookCapabilityProtocol",

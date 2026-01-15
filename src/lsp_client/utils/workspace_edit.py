@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import suppress
 
 import anyio
 import anyio.to_thread
@@ -10,7 +9,7 @@ from attrs import define
 from loguru import logger
 
 from lsp_client.exception import EditApplicationError, VersionMismatchError
-from lsp_client.protocol import DocumentEditProtocol
+from lsp_client.protocol import CapabilityClientProtocol
 from lsp_client.utils.types import lsp_type
 from lsp_client.utils.uri import from_local_uri
 
@@ -129,7 +128,7 @@ class WorkspaceEditApplicator:
         client: Client instance with document state and file I/O operations
     """
 
-    client: DocumentEditProtocol
+    client: CapabilityClientProtocol
 
     async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:
         """
@@ -176,13 +175,13 @@ class WorkspaceEditApplicator:
 
         # Validate version if specified
         if expected_version is not None:
-            try:
-                actual_version = self.client.get_document_state().get_version(uri)
-            except KeyError as e:
+            if (
+                actual_version := self.client.get_document_state().get_version(uri)
+            ) is None:
                 raise EditApplicationError(
                     message=f"Document {uri} not open in client",
                     uri=uri,
-                ) from e
+                )
 
             if actual_version != expected_version:
                 raise VersionMismatchError(
@@ -195,30 +194,22 @@ class WorkspaceEditApplicator:
                     actual_version=actual_version,
                 )
 
-        # Read, apply, and write edits
+        # Read, apply, and write edits (state sync handled automatically by write_file)
         file_path = self.client.from_uri(uri, relative=False)
         content = await self.client.read_file(file_path)
         new_content = apply_text_edits(content, edit.edits)
         await self.client.write_file(uri, new_content)
-
-        # Update document state if tracked
-        with suppress(KeyError):
-            _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_changes(
         self, changes: Mapping[str, Sequence[lsp_type.TextEdit]]
     ) -> None:
         """Apply changes map (deprecated format)."""
         for uri, edits in changes.items():
-            # Read, apply, and write edits
+            # Read, apply, and write edits (state sync handled automatically by write_file)
             file_path = self.client.from_uri(uri, relative=False)
             content = await self.client.read_file(file_path)
             new_content = apply_text_edits(content, edits)
             await self.client.write_file(uri, new_content)
-
-            # Update document state if tracked
-            with suppress(KeyError):
-                _ = self.client.get_document_state().update_content(uri, new_content)
 
     async def _apply_create_file(self, change: lsp_type.CreateFile) -> None:
         """Apply CreateFile resource operation."""
@@ -297,11 +288,11 @@ class WorkspaceEditApplicator:
         logger.debug(f"Renamed file: {old_uri} -> {new_uri}")
 
         # Update document state if tracked
-        with suppress(KeyError):
-            content = self.client.get_document_state().get_content(old_uri)
-            version = self.client.get_document_state().get_version(old_uri)
-            self.client.get_document_state().unregister(old_uri)
-            self.client.get_document_state().register(new_uri, content, version=version)
+        doc_state = self.client.get_document_state()
+        if (content := doc_state.get_content(old_uri)) is not None:
+            version = doc_state.get_version(old_uri) or 0
+            doc_state.unregister(old_uri)
+            doc_state.register(new_uri, content, version=version)
 
     async def _apply_delete_file(self, change: lsp_type.DeleteFile) -> None:
         """Apply DeleteFile resource operation."""
@@ -344,5 +335,4 @@ class WorkspaceEditApplicator:
             logger.debug(f"Deleted file: {uri}")
 
         # Update document state if tracked
-        with suppress(KeyError):
-            self.client.get_document_state().unregister(uri)
+        self.client.get_document_state().unregister(uri)

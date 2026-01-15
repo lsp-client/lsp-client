@@ -12,8 +12,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-import anyio
-
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import AnyPath, Notification, Request, Response
@@ -24,31 +22,14 @@ from .lang import LanguageConfig
 
 
 @runtime_checkable
-class DocumentEditProtocol(Protocol):
-    """Protocol for objects that can apply document edits."""
+class CapabilityClientProtocol(Protocol):
+    """
+    Minimal interface for a client to perform LSP operations.
+    """
 
     @abstractmethod
     def get_document_state(self) -> DocumentStateManager:
         """Get the document state manager."""
-
-    async def read_file(self, file_path: AnyPath) -> str:
-        """Read file content by path."""
-        ...
-
-    async def write_file(self, uri: str, content: str) -> None:
-        """Write file content by URI."""
-        ...
-
-    def from_uri(self, uri: str, *, relative: bool = True) -> Path:
-        """Convert a URI to a path."""
-        ...
-
-
-@runtime_checkable
-class CapabilityClientProtocol(DocumentEditProtocol, Protocol):
-    """
-    Minimal interface for a client to perform LSP operations.
-    """
 
     @abstractmethod
     def get_workspace(self) -> Workspace:
@@ -77,6 +58,14 @@ class CapabilityClientProtocol(DocumentEditProtocol, Protocol):
 
     @abstractmethod
     async def notify(self, msg: Notification) -> None: ...
+
+    @abstractmethod
+    async def read_file(self, file_path: AnyPath) -> str:
+        """Read file content by path."""
+
+    @abstractmethod
+    async def write_file(self, uri: str, content: str) -> None:
+        """Write file content by URI."""
 
     def as_uri(self, file_path: AnyPath) -> str:
         """
@@ -128,10 +117,3 @@ class CapabilityClientProtocol(DocumentEditProtocol, Protocol):
                 return Path(name) / path.relative_to(folder.path)
 
         return path
-
-    async def read_file(self, file_path: AnyPath) -> str:
-        """Read the content of a file in the workspace."""
-
-        uri = self.as_uri(file_path)
-        abs_file_path = self.from_uri(uri, relative=False)
-        return await anyio.Path(abs_file_path).read_text()

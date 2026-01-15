@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import anyio
@@ -9,20 +11,48 @@ from lsprotocol import types as lsp_type
 
 from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.exception import EditApplicationError, VersionMismatchError
-from lsp_client.utils.types import AnyPath
+from lsp_client.protocol import CapabilityClientProtocol
+from lsp_client.protocol.lang import LanguageConfig
+from lsp_client.utils.config import ConfigurationMap
+from lsp_client.utils.types import AnyPath, Notification, Request, Response
+from lsp_client.utils.workspace import Workspace
 from lsp_client.utils.workspace_edit import WorkspaceEditApplicator, apply_text_edits
 
 
-class MockClient:
+class MockClient(CapabilityClientProtocol):
     """Mock client for testing workspace edit application."""
 
     def __init__(self, temp_dir: Path | None = None) -> None:
         self.document_state = DocumentStateManager()
         self._files: dict[str, str] = {}
         self._temp_dir = temp_dir
+        self._workspace = Workspace()
+        self._config_map = ConfigurationMap()
 
     def get_document_state(self) -> DocumentStateManager:
         return self.document_state
+
+    def get_workspace(self) -> Workspace:
+        return self._workspace
+
+    def get_config_map(self) -> ConfigurationMap:
+        return self._config_map
+
+    @classmethod
+    def get_language_config(cls) -> LanguageConfig:
+        return LanguageConfig(
+            kind=lsp_type.LanguageKind.Python, suffixes=[".py"], project_files=[]
+        )
+
+    @asynccontextmanager
+    async def open_files(self, *file_paths: AnyPath) -> AsyncGenerator[None]:
+        yield
+
+    async def request[R](self, req: Request, schema: type[Response[R]]) -> R:
+        raise NotImplementedError
+
+    async def notify(self, msg: Notification) -> None:
+        pass
 
     async def read_file(self, file_path: AnyPath) -> str:
         if self._temp_dir:
@@ -46,6 +76,13 @@ class MockClient:
             # Extract path from URI for simplicity
             path = uri.replace("file://", "")
             self._files[path] = content
+
+        # Auto-sync document state (matching real Client behavior)
+        try:
+            self.document_state.update_content(uri, content)
+        except KeyError:
+            # Document not tracked, skip
+            pass
 
     def from_uri(self, uri: str, *, relative: bool = True) -> Path:
         # Simple URI to path conversion
@@ -409,9 +446,7 @@ async def test_rename_file_with_document_state():
 
         await applicator.apply_workspace_edit(edit)
 
-        with pytest.raises(KeyError):
-            client.document_state.get_version(old_uri)
-
+        assert client.document_state.get_version(old_uri) is None
         assert client.document_state.get_version(new_uri) == 5
         assert client.document_state.get_content(new_uri) == "content"
 
@@ -452,8 +487,7 @@ async def test_delete_file_with_document_state():
 
         await applicator.apply_workspace_edit(edit)
 
-        with pytest.raises(KeyError):
-            client.document_state.get_version(uri)
+        assert client.document_state.get_version(uri) is None
 
 
 @pytest.mark.asyncio

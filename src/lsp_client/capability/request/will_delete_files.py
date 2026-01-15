@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import Protocol, override, runtime_checkable
 
 from lsp_client.jsonrpc.id import jsonrpc_uuid
-from lsp_client.protocol import CapabilityClientProtocol, WorkspaceCapabilityProtocol
+from lsp_client.protocol import WorkspaceCapabilityProtocol
 from lsp_client.utils.types import lsp_type
 
 from .workspace_edit import WithApplyWorkspaceEdit
@@ -13,7 +13,6 @@ from .workspace_edit import WithApplyWorkspaceEdit
 @runtime_checkable
 class WithRequestWillDeleteFiles(
     WorkspaceCapabilityProtocol,
-    CapabilityClientProtocol,
     WithApplyWorkspaceEdit,
     Protocol,
 ):
