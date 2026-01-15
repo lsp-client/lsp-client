@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+from lsp_client.server.container import ContainerServer
+from lsp_client.utils.workspace import Workspace, WorkspaceFolder
+
 """
 Unit tests for ContainerServer container reuse functionality.
 
 Tests cover auto_remove flag, hash-based naming, container existence checking,
 and mount validation.
 """
-
-import pytest
-
-from lsp_client.server.container import ContainerServer
-from lsp_client.utils.workspace import Workspace, WorkspaceFolder
 
 
 class TestContainerServerAutoRemove:
@@ -255,7 +253,6 @@ class TestContainerServerMountTargets:
 
     def test_get_expected_mount_targets_includes_extra_mounts(self):
         """Test that extra mounts are included in expected targets."""
-        from pathlib import Path
 
         from lsp_client.server.container import BindMount
 

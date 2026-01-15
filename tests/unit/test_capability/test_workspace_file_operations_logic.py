@@ -165,4 +165,3 @@ async def test_notify_did_change_workspace_folders():
     assert isinstance(call_args, lsp_type.DidChangeWorkspaceFoldersNotification)
     assert call_args.params.event.added == added
     assert call_args.params.event.removed == removed
-
