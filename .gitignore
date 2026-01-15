@@ -28,4 +28,5 @@ Thumbs.db
 # Cache
 *_cache
 
-references/
+/references/
+test.py
