@@ -6,6 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from lsprotocol import types as lsp_type
 
+from lsp_client.capability.notification.did_change_workspace_folders import (
+    WithNotifyDidChangeWorkspaceFolders,
+)
 from lsp_client.capability.notification.did_create_files import WithNotifyDidCreateFiles
 from lsp_client.capability.notification.did_delete_files import WithNotifyDidDeleteFiles
 from lsp_client.capability.notification.did_rename_files import WithNotifyDidRenameFiles
@@ -145,3 +148,21 @@ async def test_notify_did_delete_files():
     call_args = client.notify_mock.call_args[0][0]
     assert isinstance(call_args, lsp_type.DidDeleteFilesNotification)
     assert call_args.params.files[0].uri == uris[0]
+
+
+@pytest.mark.asyncio
+async def test_notify_did_change_workspace_folders():
+    class TestClient(MockClient, WithNotifyDidChangeWorkspaceFolders):
+        pass
+
+    client = TestClient()
+    added = [lsp_type.WorkspaceFolder(uri="file:///new", name="new")]
+    removed = [lsp_type.WorkspaceFolder(uri="file:///old", name="old")]
+    await client.notify_did_change_workspace_folders(added, removed)
+
+    client.notify_mock.assert_called_once()
+    call_args = client.notify_mock.call_args[0][0]
+    assert isinstance(call_args, lsp_type.DidChangeWorkspaceFoldersNotification)
+    assert call_args.params.event.added == added
+    assert call_args.params.event.removed == removed
+
