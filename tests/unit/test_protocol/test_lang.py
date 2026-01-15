@@ -71,42 +71,50 @@ def test_find_project_root_wrong_suffix(
     assert result is None
 
 
-def test_find_project_root_with_cwd(tmp_project: Path, python_config: LanguageConfig):
-    cwd = tmp_project.parent
-    file_path = tmp_project / "src" / "main.py"
-    result = python_config.find_project_root(file_path, cwd=cwd)
-    assert result == tmp_project
+def test_is_project_root(tmp_path: Path, python_config: LanguageConfig):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("[tool.poetry]\n")
+
+    assert python_config.is_project_root(project) is True
+    assert python_config.is_project_root(tmp_path) is False
 
 
-def test_find_project_root_with_cwd_closest_to_cwd(
-    tmp_path: Path, python_config: LanguageConfig
-):
-    """Test that when cwd is specified, it returns the project root closest to cwd."""
+def test_is_project_root_with_exclude(tmp_path: Path):
+    config = LanguageConfig(
+        kind=lsp_type.LanguageKind.Python,
+        suffixes=[".py"],
+        project_files=["pyproject.toml"],
+        exclude_files=[".git"],
+    )
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("[tool.poetry]\n")
+    (project / ".git").mkdir()
+
+    assert config.is_project_root(project) is False
+
+
+def test_find_project_root_skips_excluded(tmp_path: Path):
+    config = LanguageConfig(
+        kind=lsp_type.LanguageKind.Python,
+        suffixes=[".py"],
+        project_files=["pyproject.toml"],
+        exclude_files=[".git"],
+    )
     outer = tmp_path / "outer"
     inner = tmp_path / "outer" / "inner"
     inner.mkdir(parents=True)
 
-    (outer / "pyproject.toml").write_text("[tool.poetry]\n")
-    (inner / "pyproject.toml").write_text("[tool.poetry]\n")
+    (outer / "pyproject.toml").write_text("outer")
+    (inner / "pyproject.toml").write_text("inner")
+    (inner / ".git").mkdir()
 
-    file_path = inner / "file.py"
-    file_path.write_text("pass\n")
+    file_path = inner / "main.py"
+    file_path.write_text("pass")
 
-    result = python_config.find_project_root(file_path, cwd=outer)
+    result = config.find_project_root(file_path)
     assert result == outer
-
-
-def test_find_project_root_raises_when_path_not_relative_to_cwd(
-    tmp_path: Path, python_config: LanguageConfig
-):
-    cwd = tmp_path / "workspace"
-    cwd.mkdir()
-    file_path = tmp_path / "other" / "file.py"
-    file_path.parent.mkdir()
-    file_path.write_text("pass\n")
-
-    with pytest.raises(ValueError, match="is not relative to the specified"):
-        python_config.find_project_root(file_path, cwd=cwd)
 
 
 def test_find_project_root_with_glob_pattern(tmp_path: Path):
@@ -143,30 +151,6 @@ def test_find_project_root_with_exclude_files(tmp_path: Path):
 
     result = config.find_project_root(file_path)
     assert result is None
-
-
-def test_find_project_root_with_exclude_files_and_cwd(tmp_path: Path):
-    """Test that when cwd is specified, excluded dirs are skipped and search continues."""
-    config = LanguageConfig(
-        kind=lsp_type.LanguageKind.Python,
-        suffixes=[".py"],
-        project_files=["pyproject.toml"],
-        exclude_files=[".git"],
-    )
-
-    outer = tmp_path / "outer"
-    inner = tmp_path / "outer" / "inner"
-    inner.mkdir(parents=True)
-
-    (outer / "pyproject.toml").write_text("[tool.poetry]\n")
-    (inner / "pyproject.toml").write_text("[tool.poetry]\n")
-    (inner / ".git").mkdir()
-
-    file_path = inner / "main.py"
-    file_path.write_text("pass\n")
-
-    result = config.find_project_root(file_path, cwd=outer)
-    assert result == outer
 
 
 def test_find_project_root_with_glob_exclude_pattern(tmp_path: Path):
