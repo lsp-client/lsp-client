@@ -46,7 +46,10 @@ class WithNotifyDidChangeConfiguration(
             lsp_type.DidChangeConfigurationNotification(params=params)
         )
 
-    async def notify_change_configuration(self, settings: Any | None = None) -> None:
+    async def notify_change_configuration(
+        self,
+        settings: Any | None = None,  # noqa: ANN401
+    ) -> None:
         """
         Notify the server that the configuration has changed.
 

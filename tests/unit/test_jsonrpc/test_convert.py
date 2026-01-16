@@ -71,7 +71,7 @@ class TestJsonRpcConvert:
         )
         try:
             response_deserialize(raw_error_response, lsp_type.InitializeResponse)
-            assert False, "Should have raised JsonRpcResponseError"
+            raise AssertionError("Should have raised JsonRpcResponseError")
         except JsonRpcResponseError:
             pass
 

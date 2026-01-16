@@ -48,7 +48,7 @@ def build_client_capabilities(cls: type) -> lsp_type.ClientCapabilities:
     )
 
 
-def build_server_request_hooks(instance: Any) -> ServerRequestHookRegistry:
+def build_server_request_hooks(instance: Any) -> ServerRequestHookRegistry:  # noqa: ANN401
     registry = ServerRequestHookRegistry()
 
     if isinstance(instance, ServerRequestHookProtocol):

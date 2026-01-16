@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast
+from typing import cast
 
 from lsprotocol import converters
 
@@ -21,7 +21,7 @@ converter = converters.get_converter()
 
 @converter.register_structure_hook
 def _(
-    object_: Any, _: object
+    object_: object, _: object
 ) -> (
     str
     | lsp_type.NotebookDocumentFilterNotebookType
@@ -35,18 +35,18 @@ def _(
         return None
     if isinstance(object_, str):
         return str(object_)
-    if "notebookType" in object_:
+    if isinstance(object_, dict) and "notebookType" in object_:
         return converter.structure(object_, lsp_type.NotebookDocumentFilterNotebookType)
-    if "scheme" in object_:
+    if isinstance(object_, dict) and "scheme" in object_:
         return converter.structure(object_, lsp_type.NotebookDocumentFilterScheme)
     return converter.structure(object_, lsp_type.NotebookDocumentFilterPattern)
 
 
-def value_deserialize[R](raw_value: Any, schema: type[R]) -> R:
+def value_deserialize[R](raw_value: object, schema: type[R]) -> R:
     return converter.structure(raw_value, schema)
 
 
-def value_serialize(value: Any) -> Any:
+def value_serialize(value: object) -> object:
     return converter.unstructure(value)
 
 
@@ -84,5 +84,5 @@ def response_deserialize[R](
             raise JsonRpcParseError(f"Unexpected response: {unexpected}")
 
 
-def response_serialize(response: Response[Any]) -> RawResponsePackage:
+def response_serialize(response: Response[object]) -> RawResponsePackage:
     return cast(RawResponsePackage, converter.unstructure(response))

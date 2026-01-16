@@ -52,7 +52,7 @@ class WithRespondConfigurationRequest(
     def check_server_capability(cls, cap: lsp_type.ServerCapabilities) -> None:
         super().check_server_capability(cap)
 
-    def get_configuration(self, scope_uri: str | None, section: str | None) -> Any:
+    def get_configuration(self, scope_uri: str | None, section: str | None) -> Any:  # noqa: ANN401
         """
         Get the configuration value for the given scope URI and section.
 

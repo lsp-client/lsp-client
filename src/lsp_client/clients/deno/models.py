@@ -685,7 +685,8 @@ def register_hooks(converter: cattrs.Converter) -> None:
     resolve_types(DenoTestRunProgressNotification)
 
     def _test_run_progress_message_hook(
-        obj: Any, _: type
+        obj: Any,  # noqa: ANN401
+        _: type,
     ) -> DenoTestRunProgressMessage:
         if not isinstance(obj, dict):
             return obj

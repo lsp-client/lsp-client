@@ -128,7 +128,7 @@ class WithRequestDenoPerformance(
         yield from super().iter_methods()
         yield from (DENO_PERFORMANCE,)
 
-    async def request_deno_performance(self) -> Any:
+    async def request_deno_performance(self) -> Any:  # noqa: ANN401
         return await self.request(
             DenoPerformanceRequest(id=jsonrpc_uuid()),
             schema=DenoPerformanceResponse,

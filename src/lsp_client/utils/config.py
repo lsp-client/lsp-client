@@ -29,7 +29,7 @@ def deep_merge(base: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def deep_get(d: dict, keys: Iterable) -> Any:
+def deep_get(d: dict, keys: Iterable) -> object | None:
     try:
         return reduce(getitem, keys, d)
     except (KeyError, TypeError):
@@ -42,7 +42,7 @@ class ConfigurationChangeListener(Protocol):
     Protocol for configuration change listeners.
     """
 
-    async def __call__(self, config_map: ConfigurationMap) -> Any: ...
+    async def __call__(self, config_map: ConfigurationMap) -> None: ...
 
 
 Config = dict[str, Any]
@@ -102,13 +102,16 @@ class ConfigurationMap:
         self.scoped_configs.append(ScopeConfig(pattern=pattern, config=config))
         await self._notify_change()
 
-    def _get_section(self, config: Any, section: str | None) -> Any:
+    def _get_section(self, config: object, section: str | None) -> object:
         if not section:
             return config
 
+        if not isinstance(config, dict):
+            return None
+
         return deep_get(config, section.split("."))
 
-    def get(self, scope_uri: str | None, section: str | None) -> Any:
+    def get(self, scope_uri: str | None, section: str | None) -> object:
         final_config = self.global_config
 
         if not scope_uri:
