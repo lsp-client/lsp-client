@@ -143,7 +143,7 @@ class Client(
                     async with candidate.run(self._workspace, sender=sender) as server:
                         logger.info("Successfully started server: {}", type(server))
                         yield server, receiver
-                        logger.debug("Server {} stopped", server)
+                        logger.debug("Server {} stopped", type(server))
                         return
                 except ServerRuntimeError as e:
                     errors.append(e)

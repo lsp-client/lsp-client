@@ -9,6 +9,10 @@ import anyio
 from attrs import define
 from loguru import logger
 
+from lsp_client.capability.diagnostic import (
+    WithDocumentDiagnostic,
+    WithWorkspaceDiagnostic,
+)
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
     WithNotifyDidCreateFiles,
@@ -16,7 +20,6 @@ from lsp_client.capability.notification import (
     WithNotifyDidRenameFiles,
 )
 from lsp_client.capability.request import (
-    WithDocumentDiagnostic,
     WithRequestCallHierarchy,
     WithRequestCodeAction,
     WithRequestCompletion,
@@ -77,7 +80,6 @@ async def ensure_rust_analyzer_installed() -> None:
 RustAnalyzerLocalServer = partial(
     LocalServer,
     program="rust-analyzer",
-    args=[],
     ensure_installed=ensure_rust_analyzer_installed,
 )
 
@@ -99,6 +101,7 @@ class RustAnalyzerClient(
     WithRequestImplementation,
     WithRequestInlayHint,
     WithDocumentDiagnostic,
+    WithWorkspaceDiagnostic,
     WithRequestReferences,
     WithRequestSignatureHelp,
     WithRequestTypeDefinition,

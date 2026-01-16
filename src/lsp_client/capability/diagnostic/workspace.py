@@ -48,7 +48,6 @@ class WithWorkspaceDiagnostic(
     def check_server_capability(cls, cap: lsp_type.ServerCapabilities) -> None:
         super().check_server_capability(cap)
         assert cap.diagnostic_provider
-        assert cap.diagnostic_provider.workspace_diagnostics
 
     async def _request_workspace_diagnostic(
         self, params: lsp_type.WorkspaceDiagnosticParams

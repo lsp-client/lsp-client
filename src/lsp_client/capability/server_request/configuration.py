@@ -66,8 +66,6 @@ class WithRespondConfigurationRequest(
     async def _respond_configuration(
         self, params: lsp_type.ConfigurationParams
     ) -> list[Any]:
-        logger.debug("Responding to configuration request")
-
         return [
             self.get_configuration(item.scope_uri, item.section)
             for item in params.items
