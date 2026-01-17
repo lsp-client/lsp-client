@@ -109,3 +109,21 @@ class WithRequestCodeAction(
         code_action: lsp_type.CodeAction,
     ) -> lsp_type.CodeAction:
         return await self._request_code_action_resolve(code_action)
+
+    def get_supported_code_action_kinds(
+        self,
+    ) -> Sequence[lsp_type.CodeActionKind | str] | None:
+        """
+        Get the code action kinds supported by the server.
+
+        Returns:
+            A sequence of supported code action kinds, or None if the server
+            doesn't specify them or doesn't support code actions.
+        """
+
+        cap = self.get_server_capabilities()
+        match cap.code_action_provider:
+            case lsp_type.CodeActionOptions(code_action_kinds=kinds):
+                return kinds
+            case _:
+                return None
