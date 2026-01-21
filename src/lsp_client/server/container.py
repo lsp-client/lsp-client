@@ -185,7 +185,7 @@ class ContainerServer(StreamServer):
         suitable for reuse (i.e. can be started with `start -ai`).
         """
         try:
-            # Query the container's state; Docker/Podman expose it via .State.Status
+            # Query the container's state; using a format compatible with most OCI runtimes
             result = await anyio.run_process(
                 [self.backend, "inspect", "--format={{.State.Status}}", name],
                 stdout=subprocess.PIPE,
@@ -196,6 +196,7 @@ class ContainerServer(StreamServer):
             return False
 
         state = (result.stdout or b"").decode().strip().lower()
+        # Common OCI container states suitable for 'start'
         if state in ("exited", "created"):
             return True
 
