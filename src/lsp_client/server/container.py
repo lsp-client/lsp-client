@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, final, override
 
+import aioshutil
 import anyio
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
@@ -142,17 +143,14 @@ class ContainerServer(StreamServer):
     mounts: list[Mount] = Factory(list)
     """List of extra mounts to be mounted inside the container."""
 
-    backend: Literal["docker", "podman"] = "docker"
-    """The container backend to use. Can be either `docker` or `podman`."""
+    backend: Literal["docker", "podman", "nerdctl"] | str = "docker"
+    """The container backend to use. Can be `docker`, `podman`, `nerdctl` or any OCI-compliant CLI."""
 
     container_name: str | None = None
     """Optional name for the container."""
 
     extra_container_args: list[str] | None = None
     """Extra arguments to pass to the container runtime."""
-
-    cache: bool = True
-    """Whether to reuse an existing container if one exists."""
 
     _local: LocalServer = field(init=False)
 
@@ -170,45 +168,11 @@ class ContainerServer(StreamServer):
     async def kill(self) -> None:
         await self._local.kill()
 
-    def _generate_hash_name(self, workspace: Workspace) -> str:
-        """Generate a deterministic container name for a workspace.
-
-        The name is derived from the workspace ID so that the same workspace
-        gets the same container name across sessions, enabling container reuse
-        when auto_remove is disabled.
-        """
-        return f"lsp-server-{workspace.id}"
-
-    async def _container_exists(self, name: str) -> bool:
-        """
-        Return True only if a container with the given name exists and is in a state
-        suitable for reuse (i.e. can be started with `start -ai`).
-        """
-        try:
-            # Query the container's state; using a format compatible with most OCI runtimes
-            result = await anyio.run_process(
-                [self.backend, "inspect", "--format={{.State.Status}}", name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-        except (anyio.ProcessError, FileNotFoundError):
-            # Container does not exist or backend is unavailable.
-            return False
-
-        state = (result.stdout or b"").decode().strip().lower()
-        # Common OCI container states suitable for 'start'
-        if state in ("exited", "created"):
-            return True
-
-        logger.debug(
-            "Container '{}' exists but is in state '{}' which is not suitable for reuse",
-            name,
-            state or "<unknown>",
-        )
-        return False
-
     @override
     async def check_availability(self) -> None:
+        if not await aioshutil.which(self.backend):
+            raise RuntimeError(f"Container backend '{self.backend}' not found in PATH.")
+
         try:
             await anyio.run_process(
                 [self.backend, "pull", self.image],
@@ -217,8 +181,7 @@ class ContainerServer(StreamServer):
             )
         except anyio.ProcessError as e:
             raise RuntimeError(
-                f"Container backend '{self.backend}' is not available or image '{self.image}' "
-                "could not be pulled."
+                f"Container backend '{self.backend}' failed to pull image '{self.image}'."
             ) from e
 
     def _get_effective_workdir(self, workspace: Workspace) -> str:
@@ -236,7 +199,7 @@ class ContainerServer(StreamServer):
     def format_args(self, workspace: Workspace) -> list[str]:
         args = ["run", "-i", "--rm"]
 
-        name = self.container_name or self._generate_hash_name(workspace)
+        name = self.container_name or f"lsp-server-{workspace.id}"
         args.extend(("--name", name))
 
         args.extend(("--workdir", self._get_effective_workdir(workspace)))
@@ -263,15 +226,6 @@ class ContainerServer(StreamServer):
 
     @override
     async def setup(self, workspace: Workspace) -> None:
-        if self.cache:
-            name = self.container_name or self._generate_hash_name(workspace)
-            if await self._container_exists(name):
-                logger.debug("Reusing existing container: {}", name)
-                self._local = LocalServer(
-                    program=self.backend, args=["start", "-ai", name]
-                )
-                return
-
         args = self.format_args(workspace)
         logger.debug("Running container runtime with command: {}", args)
         self._local = LocalServer(program=self.backend, args=args)
