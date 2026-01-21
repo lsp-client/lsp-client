@@ -89,7 +89,7 @@ def format_workspace(raw: RawWorkspace) -> Workspace:
             return Workspace(
                 {
                     DEFAULT_WORKSPACE_DIR: WorkspaceFolder(
-                        uri=Path(root_folder_path).as_uri(),
+                        uri=Path(root_folder_path).resolve().as_uri(),
                         name="root",
                     )
                 }
@@ -99,7 +99,7 @@ def format_workspace(raw: RawWorkspace) -> Workspace:
         case _ as mapping:
             return Workspace(
                 {
-                    name: WorkspaceFolder(uri=Path(path).as_uri(), name=name)
+                    name: WorkspaceFolder(uri=Path(path).resolve().as_uri(), name=name)
                     for name, path in mapping.items()
                 }
             )
