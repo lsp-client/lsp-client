@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Literal, final, override
 
 import anyio
-import xxhash
 from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
@@ -174,13 +173,11 @@ class ContainerServer(StreamServer):
     def _generate_hash_name(self, workspace: Workspace) -> str:
         """Generate a deterministic container name for a workspace.
 
-        The name is derived from the container image and the workspace ID so
-        that the same workspace gets the same container name across sessions,
-        enabling container reuse when auto_remove is disabled.
+        The name is derived from the workspace ID so that the same workspace
+        gets the same container name across sessions, enabling container reuse
+        when auto_remove is disabled.
         """
-        hash_input = f"{self.image}:{workspace.id}:{self.workdir or ''}"
-        path_hash = xxhash.xxh32_hexdigest(hash_input.encode(), seed=0)
-        return f"lsp-server-{path_hash}"
+        return f"lsp-server-{workspace.id}"
 
     async def _container_exists(self, name: str) -> bool:
         """
