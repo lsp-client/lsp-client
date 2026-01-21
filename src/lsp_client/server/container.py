@@ -137,6 +137,9 @@ class ContainerServer(StreamServer):
     image: str
     """The container image to use."""
 
+    workdir: str | None = None
+    """The working directory inside the container."""
+
     mounts: list[Mount] = Factory(list)
     """List of extra mounts to be mounted inside the container."""
 
@@ -175,7 +178,7 @@ class ContainerServer(StreamServer):
         that the same workspace gets the same container name across sessions,
         enabling container reuse when auto_remove is disabled.
         """
-        hash_input = f"{self.image}:{workspace.id}"
+        hash_input = f"{self.image}:{workspace.id}:{self.workdir or ''}"
         path_hash = xxhash.xxh32_hexdigest(hash_input.encode(), seed=0)
         return f"lsp-server-{path_hash}"
 
@@ -232,6 +235,19 @@ class ContainerServer(StreamServer):
 
         return [line.strip() for line in output.split("\n") if line.strip()]
 
+    async def _get_container_workdir(self, name: str) -> str | None:
+        """Get the working directory of an existing container."""
+        try:
+            result = await anyio.run_process(
+                [self.backend, "inspect", "--format={{.Config.WorkingDir}}", name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+        except (anyio.ProcessError, FileNotFoundError):
+            return None
+
+        return (result.stdout or b"").decode().strip()
+
     def _get_expected_mount_targets(self, workspace: Workspace) -> set[str]:
         """
         Get the set of expected mount targets for the current workspace.
@@ -280,6 +296,18 @@ class ContainerServer(StreamServer):
                 "could not be pulled."
             ) from e
 
+    def _get_effective_workdir(self, workspace: Workspace) -> str:
+        if self.workdir:
+            return self.workdir
+
+        folders = workspace.to_folders()
+        if len(folders) == 1:
+            return folders[0].path.as_posix()
+
+        raise ValueError(
+            "Must specify 'workdir' when multiple or no workspace folders are provided."
+        )
+
     def format_args(self, workspace: Workspace) -> list[str]:
         args = ["run", "-i"]
         if self.auto_remove:
@@ -291,6 +319,8 @@ class ContainerServer(StreamServer):
 
         if name:
             args.extend(("--name", name))
+
+        args.extend(("--workdir", self._get_effective_workdir(workspace)))
 
         mounts = list(self.mounts)
         folders = workspace.to_folders()
@@ -317,22 +347,31 @@ class ContainerServer(StreamServer):
         if not self.auto_remove:
             name = self.container_name or self._generate_hash_name(workspace)
             if await self._container_exists(name):
-                # Validate that the existing container has the correct mounts
+                # Validate that the existing container has the correct mounts and workdir
                 existing_mounts = set(await self._get_container_mounts(name))
                 expected_mounts = self._get_expected_mount_targets(workspace)
+                existing_workdir = await self._get_container_workdir(name)
+                expected_workdir = self._get_effective_workdir(workspace)
 
-                if existing_mounts == expected_mounts:
+                if (
+                    existing_mounts == expected_mounts
+                    and existing_workdir == expected_workdir
+                ):
                     logger.debug("Reusing existing container: {}", name)
                     self._local = LocalServer(
                         program=self.backend, args=["start", "-ai", name]
                     )
                     return
                 logger.debug(
-                    "Container '{}' exists but has incorrect mounts. "
-                    "Expected: {}, Got: {}. Removing and recreating.",
+                    "Container '{}' exists but has incorrect configuration. "
+                    "Expected mounts: {}, Got: {}. "
+                    "Expected workdir: {}, Got: {}. "
+                    "Removing and recreating.",
                     name,
                     expected_mounts,
                     existing_mounts,
+                    expected_workdir,
+                    existing_workdir,
                 )
                 # Remove the container with incorrect mounts
                 try:
