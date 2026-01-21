@@ -151,8 +151,8 @@ class ContainerServer(StreamServer):
     extra_container_args: list[str] | None = None
     """Extra arguments to pass to the container runtime."""
 
-    auto_remove: bool = True
-    """Whether to automatically remove the container when it exits."""
+    cache: bool = True
+    """Whether to reuse an existing container if one exists."""
 
     _local: LocalServer = field(init=False)
 
@@ -205,45 +205,6 @@ class ContainerServer(StreamServer):
             state or "<unknown>",
         )
         return False
-
-    async def _get_container_mounts(self, name: str) -> list[str]:
-        """
-        Get the list of mount targets from an existing container.
-
-        Returns a list of target paths that are mounted in the container.
-        """
-        try:
-            result = await anyio.run_process(
-                [
-                    self.backend,
-                    "inspect",
-                    "--format={{range .Mounts}}{{.Destination}}\n{{end}}",
-                    name,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-        except (anyio.ProcessError, FileNotFoundError):
-            return []
-
-        output = (result.stdout or b"").decode().strip()
-        if not output:
-            return []
-
-        return [line.strip() for line in output.split("\n") if line.strip()]
-
-    async def _get_container_workdir(self, name: str) -> str | None:
-        """Get the working directory of an existing container."""
-        try:
-            result = await anyio.run_process(
-                [self.backend, "inspect", "--format={{.Config.WorkingDir}}", name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-        except (anyio.ProcessError, FileNotFoundError):
-            return None
-
-        return (result.stdout or b"").decode().strip()
 
     def _get_expected_mount_targets(self, workspace: Workspace) -> set[str]:
         """
@@ -306,16 +267,10 @@ class ContainerServer(StreamServer):
         )
 
     def format_args(self, workspace: Workspace) -> list[str]:
-        args = ["run", "-i"]
-        if self.auto_remove:
-            args.append("--rm")
+        args = ["run", "-i", "--rm"]
 
-        name = self.container_name
-        if not name and not self.auto_remove:
-            name = self._generate_hash_name(workspace)
-
-        if name:
-            args.extend(("--name", name))
+        name = self.container_name or self._generate_hash_name(workspace)
+        args.extend(("--name", name))
 
         args.extend(("--workdir", self._get_effective_workdir(workspace)))
 
@@ -341,46 +296,14 @@ class ContainerServer(StreamServer):
 
     @override
     async def setup(self, workspace: Workspace) -> None:
-        if not self.auto_remove:
+        if self.cache:
             name = self.container_name or self._generate_hash_name(workspace)
             if await self._container_exists(name):
-                # Validate that the existing container has the correct mounts and workdir
-                existing_mounts = set(await self._get_container_mounts(name))
-                expected_mounts = self._get_expected_mount_targets(workspace)
-                existing_workdir = await self._get_container_workdir(name)
-                expected_workdir = self._get_effective_workdir(workspace)
-
-                if (
-                    existing_mounts == expected_mounts
-                    and existing_workdir == expected_workdir
-                ):
-                    logger.debug("Reusing existing container: {}", name)
-                    self._local = LocalServer(
-                        program=self.backend, args=["start", "-ai", name]
-                    )
-                    return
-                logger.debug(
-                    "Container '{}' exists but has incorrect configuration. "
-                    "Expected mounts: {}, Got: {}. "
-                    "Expected workdir: {}, Got: {}. "
-                    "Removing and recreating.",
-                    name,
-                    expected_mounts,
-                    existing_mounts,
-                    expected_workdir,
-                    existing_workdir,
+                logger.debug("Reusing existing container: {}", name)
+                self._local = LocalServer(
+                    program=self.backend, args=["start", "-ai", name]
                 )
-                # Remove the container with incorrect mounts
-                try:
-                    await anyio.run_process(
-                        [self.backend, "rm", "-f", name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                except (anyio.ProcessError, FileNotFoundError):
-                    logger.warning(
-                        "Failed to remove container '{}' with incorrect mounts", name
-                    )
+                return
 
         args = self.format_args(workspace)
         logger.debug("Running container runtime with command: {}", args)
