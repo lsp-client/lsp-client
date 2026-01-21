@@ -206,40 +206,6 @@ class ContainerServer(StreamServer):
         )
         return False
 
-    def _get_expected_mount_targets(self, workspace: Workspace) -> set[str]:
-        """
-        Get the set of expected mount targets for the current workspace.
-
-        Returns a set of target paths that should be mounted.
-        """
-        mounts = list(self.mounts)
-        folders = workspace.to_folders()
-
-        mounts.extend(
-            BindMount.from_path(
-                folder.path, readonly=True, target=folder.path.as_posix()
-            )
-            for folder in folders
-        )
-
-        targets = set()
-        for mount in mounts:
-            if isinstance(mount, Path):
-                mount_obj = BindMount.from_path(mount)
-                targets.add(mount_obj.target)
-            elif isinstance(mount, str):
-                # Parse mount string to extract target
-                # Format: type=...,source=...,target=...,readonly
-                parts = mount.split(",")
-                for part in parts:
-                    if part.startswith("target="):
-                        targets.add(part.split("=", 1)[1])
-                        break
-            else:
-                targets.add(mount.target)
-
-        return targets
-
     @override
     async def check_availability(self) -> None:
         try:
