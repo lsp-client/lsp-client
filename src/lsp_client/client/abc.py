@@ -11,7 +11,7 @@ from typing import Any, Literal, Self, override
 import anyio
 import asyncer
 from anyio import AsyncContextManagerMixin
-from attrs import Factory, define, field
+from attrs import define, field
 from loguru import logger
 
 from lsp_client.capability.build import (
@@ -93,10 +93,8 @@ class Client(
     """Custom initialization options for the server."""
 
     _server: Server = field(init=False)
-    document_state: DocumentStateManager = field(
-        factory=DocumentStateManager, init=False
-    )
-    _config: ConfigurationMap = Factory(ConfigurationMap)
+    _doc: DocumentStateManager = field(factory=DocumentStateManager, init=False)
+    _config: ConfigurationMap = field(factory=ConfigurationMap, init=False)
 
     @cached_property
     def _workspace(self) -> Workspace:
@@ -154,7 +152,7 @@ class Client(
 
     @override
     def get_document_state(self) -> DocumentStateManager:
-        return self.document_state
+        return self._doc
 
     @override
     def get_workspace(self) -> Workspace:
@@ -193,7 +191,7 @@ class Client(
             yield
             return
 
-        new_docs = await self.document_state.open(file_uris)
+        new_docs = await self._doc.open(file_uris)
         async with asyncer.create_task_group() as tg:
             for uri, state in new_docs.items():
                 tg.soonify(self.notify_text_document_opened)(
@@ -204,7 +202,7 @@ class Client(
         try:
             yield
         finally:
-            closed_uris = self.document_state.close(file_uris)
+            closed_uris = self._doc.close(file_uris)
 
             async with asyncer.create_task_group() as tg:
                 for uri in closed_uris:
@@ -218,7 +216,7 @@ class Client(
         Otherwise, reads from disk.
         """
         uri = self.as_uri(file_path)
-        if (content := self.document_state.get_content(uri)) is not None:
+        if (content := self._doc.get_content(uri)) is not None:
             return content
 
         path = self.from_uri(uri, relative=False)
@@ -264,9 +262,7 @@ class Client(
         path = from_local_uri(uri)
         await anyio.Path(path).write_text(content)
 
-        if (
-            new_version := self.document_state.update_content(uri, content)
-        ) is not None:
+        if (new_version := self._doc.update_content(uri, content)) is not None:
             file_path = self.from_uri(uri, relative=False)
             await self.notify_text_document_changed(
                 file_path=file_path,

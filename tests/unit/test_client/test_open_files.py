@@ -53,21 +53,21 @@ async def test_open_files_nested_same_file(tmp_path: Path):
     uri = client.as_uri(file_path)
 
     async with client.open_files(file_path):
-        assert uri in client.document_state._states
-        assert client.document_state._ref_counts[uri] == 1
+        assert uri in client._doc._states
+        assert client._doc._ref_counts[uri] == 1
 
         async with client.open_files(file_path):
-            assert client.document_state._ref_counts[uri] == 2
+            assert client._doc._ref_counts[uri] == 2
             # Should still be registered (not registered again)
-            assert uri in client.document_state._states
+            assert uri in client._doc._states
 
         # After nested close, ref count should be 1 and still registered
-        assert client.document_state._ref_counts[uri] == 1
-        assert uri in client.document_state._states
+        assert client._doc._ref_counts[uri] == 1
+        assert uri in client._doc._states
 
     # After all closed, should be fully cleaned up
-    assert client.document_state._ref_counts[uri] == 0
-    assert uri not in client.document_state._states
+    assert client._doc._ref_counts[uri] == 0
+    assert uri not in client._doc._states
 
 
 @pytest.mark.anyio
@@ -82,16 +82,16 @@ async def test_open_files_concurrent_same_file(tmp_path: Path):
 
     async def worker():
         async with client.open_files(file_path):
-            assert uri in client.document_state._states
+            assert uri in client._doc._states
             await anyio.sleep(0.05)
-            assert uri in client.document_state._states
+            assert uri in client._doc._states
 
     async with asyncer.create_task_group() as tg:
         for _ in range(5):
             tg.soonify(worker)()
 
-    assert client.document_state._ref_counts[uri] == 0
-    assert uri not in client.document_state._states
+    assert client._doc._ref_counts[uri] == 0
+    assert uri not in client._doc._states
 
 
 @pytest.mark.anyio
@@ -107,13 +107,13 @@ async def test_open_files_mixed_files(tmp_path: Path):
     u1, u2 = client.as_uri(f1), client.as_uri(f2)
 
     async with client.open_files(f1):
-        assert u1 in client.document_state._states
+        assert u1 in client._doc._states
         async with client.open_files(f1, f2):
-            assert client.document_state._ref_counts[u1] == 2
-            assert client.document_state._ref_counts[u2] == 1
-            assert u2 in client.document_state._states
+            assert client._doc._ref_counts[u1] == 2
+            assert client._doc._ref_counts[u2] == 1
+            assert u2 in client._doc._states
 
-        assert client.document_state._ref_counts[u1] == 1
-        assert u2 not in client.document_state._states
+        assert client._doc._ref_counts[u1] == 1
+        assert u2 not in client._doc._states
 
-    assert u1 not in client.document_state._states
+    assert u1 not in client._doc._states
