@@ -300,7 +300,7 @@ class Client(
                     if hook := hooks.get_request_hook(req["method"]):
                         req = request_deserialize(req, hook.cls)
                         resp = await hook.execute(req)
-                        tx.send(response_serialize(resp))
+                        await tx.send(response_serialize(resp))
                     else:
                         # unhandled server request will block the server
                         raise ClientRuntimeError(

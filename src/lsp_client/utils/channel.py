@@ -13,8 +13,8 @@ from attrs import Factory, define, field, frozen
 class OneShotSender[T]:
     sender: MemoryObjectSendStream[T]
 
-    def send(self, item: T) -> None:
-        self.sender.send_nowait(item)
+    async def send(self, item: T) -> None:
+        await self.sender.send(item)
 
 
 @frozen
@@ -56,7 +56,7 @@ class OneShotTable[T]:
         if id not in self._pending:
             raise ValueError(f"Pending request of id {id} not found")
 
-        self._pending[id].send(data)
+        await self._pending[id].send(data)
         self._pending.pop(id)
         if not self._pending:
             async with self._condition:
