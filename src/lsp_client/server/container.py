@@ -15,6 +15,7 @@ from loguru import logger
 from lsp_client.utils.workspace import Workspace
 
 from .abc import StreamServer
+from .error import ServerRuntimeError
 from .local import LocalServer
 
 
@@ -61,16 +62,7 @@ class BindMount(MountBase):
         source = str(absolute_path)
 
         if target is None:
-            posix_path = absolute_path.as_posix()
-            if absolute_path.drive:
-                # Handle Windows drive letters: C:/path -> /c/path
-                drive = absolute_path.drive.rstrip(":").lower()
-                path_without_drive = posix_path[len(absolute_path.drive) :]
-                if not path_without_drive.startswith("/"):
-                    path_without_drive = "/" + path_without_drive
-                target = f"/{drive}{path_without_drive}"
-            else:
-                target = posix_path
+            target = absolute_path.as_posix()
 
         return cls(source=source, target=target, readonly=readonly)
 
@@ -171,48 +163,46 @@ class ContainerServer(StreamServer):
     @override
     async def check_availability(self) -> None:
         if not await aioshutil.which(self.backend):
-            raise RuntimeError(f"Container backend '{self.backend}' not found in PATH.")
+            raise ServerRuntimeError(
+                self, f"Container backend '{self.backend}' not found in PATH."
+            )
 
         try:
-            await anyio.run_process(
-                [self.backend, "pull", self.image],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except anyio.ProcessError as e:
-            raise RuntimeError(
-                f"Container backend '{self.backend}' failed to pull image '{self.image}'."
-            ) from e
+            await anyio.run_process([self.backend, "image", "inspect", self.image])
+        except subprocess.CalledProcessError:
+            logger.info("Pulling container image: {}", self.image)
+            try:
+                await anyio.run_process([self.backend, "pull", self.image])
+            except subprocess.CalledProcessError as e:
+                raise ServerRuntimeError(
+                    self,
+                    f"Container backend '{self.backend}' failed to pull image '{self.image}'.",
+                ) from e
 
     def _get_effective_workdir(self, workspace: Workspace) -> str:
         if self.workdir:
             return self.workdir
 
-        folders = workspace.to_folders()
-        if len(folders) == 1:
-            return folders[0].path.as_posix()
-
-        raise ValueError(
-            "Must specify 'workdir' when multiple or no workspace folders are provided."
-        )
+        match workspace.to_folders():
+            case [folder]:
+                return BindMount.from_path(folder.path).target
+            case _:
+                raise ValueError(
+                    "Must specify 'workdir' when multiple or no workspace folders are provided."
+                )
 
     def format_args(self, workspace: Workspace) -> list[str]:
         args = ["run", "-i", "--rm"]
 
-        name = self.container_name or f"lsp-server-{workspace.id}"
-        args.extend(("--name", name))
+        if self.container_name:
+            args.extend(("--name", self.container_name))
 
         args.extend(("--workdir", self._get_effective_workdir(workspace)))
 
         mounts = list(self.mounts)
         folders = workspace.to_folders()
 
-        mounts.extend(
-            BindMount.from_path(
-                folder.path, readonly=True, target=folder.path.as_posix()
-            )
-            for folder in folders
-        )
+        mounts.extend(BindMount.from_path(folder.path) for folder in folders)
 
         for mount in mounts:
             args.extend(("--mount", _format_mount(mount)))

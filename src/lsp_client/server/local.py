@@ -66,15 +66,16 @@ class LocalServer(StreamServer):
     @property
     @override
     def receive_stream(self) -> AnyByteReceiveStream:
-        stdout = self._process.stdout
-        assert stdout, "Process stdout is not available"
-        return stdout
+        if stdout := self._process.stdout:
+            return stdout
+        raise RuntimeError("Process stdout is not available")
 
     @property
     def stderr(self) -> AnyByteReceiveStream:
-        stderr = self._process.stderr
-        assert stderr, "Process stderr is not available"
-        return stderr
+        if stderr := self._process.stderr:
+            return stderr
+
+        raise RuntimeError("Process stderr is not available")
 
     @override
     async def kill(self) -> None:
@@ -120,7 +121,8 @@ class LocalServer(StreamServer):
                     self._process.terminate()
 
                 with anyio.fail_after(self.shutdown_timeout):
-                    if (returncode := await self._process.wait()) != 0:
+                    returncode = await self._process.wait()
+                    if returncode != 0:
                         logger.warning("Process exited with code {}", returncode)
                     else:
                         logger.debug("Process exited successfully")
