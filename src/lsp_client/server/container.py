@@ -12,6 +12,7 @@ from anyio.abc import AnyByteReceiveStream, AnyByteSendStream
 from attrs import Factory, define, field
 from loguru import logger
 
+from lsp_client.settings import settings
 from lsp_client.utils.workspace import Workspace
 
 from .abc import StreamServer
@@ -162,6 +163,13 @@ class ContainerServer(StreamServer):
 
     @override
     async def check_availability(self) -> None:
+        if not settings.enable_container:
+            raise ServerRuntimeError(
+                self,
+                "Container support is disabled. "
+                "Set environment variable LSP_CLIENT_ENABLE_CONTAINER=1 to enable it.",
+            )
+
         if not await aioshutil.which(self.backend):
             raise ServerRuntimeError(
                 self, f"Container backend '{self.backend}' not found in PATH."
@@ -216,6 +224,12 @@ class ContainerServer(StreamServer):
 
     @override
     async def setup(self, workspace: Workspace) -> None:
+        if not settings.enable_container:
+            raise ServerRuntimeError(
+                self,
+                "Container support is disabled. "
+                "Set environment variable LSP_CLIENT_ENABLE_CONTAINER=1 to enable it.",
+            )
         args = self.format_args(workspace)
         logger.debug("Running container runtime with command: {}", args)
         self._local = LocalServer(program=self.backend, args=args)
