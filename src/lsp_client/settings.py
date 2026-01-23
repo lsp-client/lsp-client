@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     )
 
     disable_auto_installation: bool = False
+    enable_container: bool = False
 
 
 settings = Settings()

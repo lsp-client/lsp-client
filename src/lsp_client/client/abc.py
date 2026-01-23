@@ -33,6 +33,7 @@ from lsp_client.protocol import CapabilityClientProtocol, CapabilityProtocol
 from lsp_client.server import DefaultServers, ServerRuntimeError
 from lsp_client.server.abc import Server
 from lsp_client.server.types import ServerRequest
+from lsp_client.settings import settings
 from lsp_client.utils.channel import Receiver, channel
 from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import AnyPath, Notification, Request, Response, lsp_type
@@ -125,7 +126,8 @@ class Client(
             await defaults.local.check_availability()
             yield defaults.local
 
-        yield defaults.container
+        if settings.enable_container:
+            yield defaults.container
         yield defaults.local
 
     @asynccontextmanager
