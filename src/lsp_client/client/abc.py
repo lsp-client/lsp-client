@@ -38,7 +38,7 @@ from lsp_client.utils.channel import Receiver, channel
 from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import AnyPath, Notification, Request, Response, lsp_type
 from lsp_client.utils.workspace import (
-    DEFAULT_WORKSPACE_DIR,
+    WORKSPACE_ROOT_DIR,
     RawWorkspace,
     Workspace,
     format_workspace,
@@ -378,7 +378,7 @@ class Client(
             tg.soonify(self._dispatch_server_requests)(receiver)
 
             client_capabilities = build_client_capabilities(self.__class__)
-            root_workspace = self.get_workspace().get(DEFAULT_WORKSPACE_DIR)
+            root_workspace = self.get_workspace().get(WORKSPACE_ROOT_DIR)
             root_path = root_workspace.path.as_posix() if root_workspace else None
             root_uri = root_workspace.uri if root_workspace else None
 
