@@ -217,3 +217,62 @@ async def test_apply_code_action_missing_execute_command_capability() -> None:
 
     with pytest.raises(RuntimeError, match="executeCommand capability not available"):
         await client.apply_code_action(command)
+
+
+@pytest.mark.asyncio
+async def test_apply_code_action_fail_fast_before_edit() -> None:
+    class PartialClient(WithRequestCodeAction, CapabilityClientProtocol):
+        apply_workspace_edit_mock: AsyncMock
+
+        def __init__(self) -> None:
+            self.apply_workspace_edit_mock = AsyncMock()
+
+        @override
+        async def request[R](self, req: Request, schema: type[Response[R]]) -> R:
+            raise NotImplementedError()  # type: ignore[misc]
+
+        @override
+        async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:
+            await self.apply_workspace_edit_mock(edit)
+
+        @override
+        def get_document_state(self) -> Any:
+            raise NotImplementedError()
+
+        @override
+        def get_workspace(self) -> Any:
+            raise NotImplementedError()
+
+        @override
+        def get_config_map(self) -> Any:
+            raise NotImplementedError()
+
+        @override
+        @classmethod
+        def get_language_config(cls) -> Any:
+            raise NotImplementedError()
+
+        @override
+        @contextlib.asynccontextmanager
+        async def open_files(self, *args: Any, **kwargs: Any) -> AsyncGenerator[None]:
+            yield
+
+        @override
+        async def write_file(self, *args: Any, **kwargs: Any) -> Any: ...
+        @override
+        async def read_file(self, *args: Any, **kwargs: Any) -> Any: ...
+        @override
+        async def notify(self, *args: Any, **kwargs: Any) -> Any: ...
+        @override
+        def as_uri(self, file_path: Any) -> str:
+            return ""
+
+    client = PartialClient()
+    edit = lsp_type.WorkspaceEdit(changes={"file1": []})
+    command = lsp_type.Command(title="Test", command="test.command")
+    action = lsp_type.CodeAction(title="Test", edit=edit, command=command)
+
+    with pytest.raises(RuntimeError, match="executeCommand capability not available"):
+        await client.apply_code_action(action)
+
+    client.apply_workspace_edit_mock.assert_not_called()
