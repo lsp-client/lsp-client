@@ -10,6 +10,7 @@ from .completion import WithRequestCompletion
 from .declaration import WithRequestDeclaration
 from .definition import WithRequestDefinition
 from .document_symbol import WithRequestDocumentSymbol
+from .execute_command import WithRequestExecuteCommand
 from .hover import WithRequestHover
 from .implementation import WithRequestImplementation
 from .inlay_hint import WithRequestInlayHint
@@ -31,6 +32,7 @@ capabilities: Final = (
     WithRequestDeclaration,
     WithRequestDefinition,
     WithRequestDocumentSymbol,
+    WithRequestExecuteCommand,
     WithRequestHover,
     WithRequestImplementation,
     WithRequestInlayHint,
@@ -56,6 +58,7 @@ __all__ = [
     "WithRequestDeclaration",
     "WithRequestDefinition",
     "WithRequestDocumentSymbol",
+    "WithRequestExecuteCommand",
     "WithRequestHover",
     "WithRequestImplementation",
     "WithRequestInlayHint",
