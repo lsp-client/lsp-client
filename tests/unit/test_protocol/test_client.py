@@ -11,7 +11,7 @@ from lsp_client.protocol.client import CapabilityClientProtocol
 from lsp_client.protocol.lang import LanguageConfig
 from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import AnyPath, Notification, Request, Response, lsp_type
-from lsp_client.utils.workspace import DEFAULT_WORKSPACE_DIR, Workspace, WorkspaceFolder
+from lsp_client.utils.workspace import WORKSPACE_ROOT_DIR, Workspace, WorkspaceFolder
 
 
 class MockClient(CapabilityClientProtocol):
@@ -57,8 +57,8 @@ class MockClient(CapabilityClientProtocol):
 def test_capability_client_protocol_as_uri():
     workspace = Workspace()
     path = Path("/test/project")
-    workspace[DEFAULT_WORKSPACE_DIR] = WorkspaceFolder(
-        uri=path.as_uri(), name=DEFAULT_WORKSPACE_DIR
+    workspace[WORKSPACE_ROOT_DIR] = WorkspaceFolder(
+        uri=path.as_uri(), name=WORKSPACE_ROOT_DIR
     )
     client = MockClient(workspace)
 
@@ -94,8 +94,8 @@ def test_capability_client_protocol_as_uri_multi_root():
 def test_capability_client_protocol_from_uri():
     workspace = Workspace()
     path = Path("/test/project/file.py")
-    workspace[DEFAULT_WORKSPACE_DIR] = WorkspaceFolder(
-        uri=Path("/test/project").as_uri(), name=DEFAULT_WORKSPACE_DIR
+    workspace[WORKSPACE_ROOT_DIR] = WorkspaceFolder(
+        uri=Path("/test/project").as_uri(), name=WORKSPACE_ROOT_DIR
     )
     client = MockClient(workspace)
 

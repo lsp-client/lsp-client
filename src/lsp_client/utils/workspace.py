@@ -68,14 +68,25 @@ class Workspace(dict[str, WorkspaceFolder]):
             "|".join(f"{name}:{folder.uri}" for name, folder in items).encode()
         )
 
+    def get_root_path(self) -> Path | None:
+        """
+        Return the path of the root workspace folder.
+
+        Return None if workspace is a multi-root workspace.
+        """
+
+        if folder := self.get(WORKSPACE_ROOT_DIR):
+            return folder.path
+        return None
+
 
 DEFAULT_WORKSPACE_PATH = Path.cwd()
-DEFAULT_WORKSPACE_DIR: Final = "__root__"
+WORKSPACE_ROOT_DIR: Final = "__root__"
 DEFAULT_WORKSPACE: Final[Workspace] = Workspace(
     {
-        DEFAULT_WORKSPACE_DIR: WorkspaceFolder(
+        WORKSPACE_ROOT_DIR: WorkspaceFolder(
             uri=Path.cwd().as_uri(),
-            name=DEFAULT_WORKSPACE_DIR,
+            name=WORKSPACE_ROOT_DIR,
         )
     }
 )
@@ -88,7 +99,7 @@ def format_workspace(raw: RawWorkspace) -> Workspace:
         case str() | os.PathLike() as root_folder_path:
             return Workspace(
                 {
-                    DEFAULT_WORKSPACE_DIR: WorkspaceFolder(
+                    WORKSPACE_ROOT_DIR: WorkspaceFolder(
                         uri=Path(root_folder_path).resolve().as_uri(),
                         name="root",
                     )

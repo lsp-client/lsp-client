@@ -16,7 +16,7 @@ from lsp_client.client.document_state import DocumentStateManager
 from lsp_client.utils.config import ConfigurationMap
 from lsp_client.utils.types import AnyPath, Notification, Request, Response
 from lsp_client.utils.uri import from_local_uri
-from lsp_client.utils.workspace import DEFAULT_WORKSPACE_DIR, Workspace
+from lsp_client.utils.workspace import WORKSPACE_ROOT_DIR, Workspace
 
 from .lang import LanguageConfig
 
@@ -87,7 +87,7 @@ class CapabilityClientProtocol(Protocol):
             return file_path.as_uri()
 
         if len(self.get_workspace()) == 1:  # single root workspace
-            folder = self.get_workspace()[DEFAULT_WORKSPACE_DIR]
+            folder = self.get_workspace()[WORKSPACE_ROOT_DIR]
             return (folder.path / file_path).as_uri()
         # multi-root workspace
         if (root := file_path.parts[0]) not in self.get_workspace():
@@ -106,8 +106,8 @@ class CapabilityClientProtocol(Protocol):
             return path
 
         workspace = self.get_workspace()
-        if len(workspace) == 1 and DEFAULT_WORKSPACE_DIR in workspace:
-            folder = workspace[DEFAULT_WORKSPACE_DIR]
+        if len(workspace) == 1 and WORKSPACE_ROOT_DIR in workspace:
+            folder = workspace[WORKSPACE_ROOT_DIR]
             if path.is_relative_to(folder.path):
                 return path.relative_to(folder.path)
             return path
