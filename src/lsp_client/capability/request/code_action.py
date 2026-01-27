@@ -138,15 +138,16 @@ class WithRequestCodeAction(
         if item.edit is None and item.command is None:
             item = await self.request_code_action_resolve(item)
 
+        if item.command is not None and not hasattr(self, "request_execute_command"):
+            raise RuntimeError(
+                "executeCommand capability not available. Include WithRequestExecuteCommand mixin."
+            )
+
         if item.edit is not None:
             await self.apply_workspace_edit(item.edit)
 
         if item.command is not None:
-            method = getattr(self, "request_execute_command", None)
-            if method is None:
-                raise RuntimeError(
-                    "executeCommand capability not available. Include WithRequestExecuteCommand mixin."
-                )
+            method = self.request_execute_command
             await method(item.command.command, item.command.arguments)
 
     async def apply_code_actions(
