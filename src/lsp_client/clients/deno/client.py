@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import shutil
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -42,9 +38,10 @@ from lsp_client.capability.server_request import (
 )
 from lsp_client.client.abc import Client
 from lsp_client.protocol.lang import LanguageConfig
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_script
 from lsp_client.utils.types import lsp_type
 
 from .extension import (
@@ -64,33 +61,20 @@ from .extension import (
 DenoContainerServer = partial(ContainerServer, image="ghcr.io/lsp-client/deno:latest")
 
 
-async def ensure_deno_installed() -> None:
-    if shutil.which("deno"):
-        return
-
-    logger.warning("deno not found, attempting to install...")
-
-    try:
-        # Use shell to execute the piped command
-        await anyio.run_process(
-            ["sh", "-c", "curl -fsSL https://deno.land/install.sh | sh"]
-        )
-        logger.info("Successfully installed deno via shell script")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install deno. Please install it manually with:\n"
-            "curl -fsSL https://deno.land/install.sh | sh\n\n"
-            "See https://deno.land/ for more information."
-        ) from e
-    else:
-        return
-
-
 DenoLocalServer = partial(
     LocalServer,
     program="deno",
     args=["lsp"],
-    ensure_installed=ensure_deno_installed,
+    ensure_installed=partial(
+        install_via_script,
+        binary="deno",
+        script_url="https://deno.land/install.sh",
+        error_message=(
+            "Could not install deno. Please install it manually with:\n"
+            "curl -fsSL https://deno.land/install.sh | sh\n\n"
+            "See https://deno.land/ for more information."
+        ),
+    ),
 )
 
 

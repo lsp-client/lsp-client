@@ -174,7 +174,7 @@ async def test_apply_code_action_missing_execute_command_capability() -> None:
 
         @override
         async def request[R](self, req: Request, schema: type[Response[R]]) -> R:
-            raise NotImplementedError()  # type: ignore[misc]
+            raise NotImplementedError()
 
         @override
         async def apply_workspace_edit(self, edit: lsp_type.WorkspaceEdit) -> None:

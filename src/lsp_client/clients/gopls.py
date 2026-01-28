@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import shutil
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import WithNotifyDidChangeConfiguration
 from lsp_client.capability.request import (
@@ -39,37 +35,26 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import GoClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 GoplsContainerServer = partial(ContainerServer, image="ghcr.io/lsp-client/gopls:latest")
-
-
-async def ensure_gopls_installed() -> None:
-    if shutil.which("gopls"):
-        return
-
-    logger.warning("gopls not found, attempting to install via go install...")
-
-    try:
-        await anyio.run_process(["go", "install", "golang.org/x/tools/gopls@latest"])
-        logger.info("Successfully installed gopls via go install")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install gopls. Please install it manually with 'go install golang.org/x/tools/gopls@latest'. "
-            "See https://github.com/golang/tools/tree/master/gopls for more information."
-        ) from e
-    else:
-        return
-
-
 GoplsLocalServer = partial(
     LocalServer,
     program="gopls",
     args=["serve"],
-    ensure_installed=ensure_gopls_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        binary="gopls",
+        commands=("go", "install", "golang.org/x/tools/gopls@latest"),
+        error_message=(
+            "Could not install gopls. Please install it manually with 'go install golang.org/x/tools/gopls@latest'. "
+            "See https://github.com/golang/tools/tree/master/gopls for more information."
+        ),
+    ),
 )
 
 

@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import shutil
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -39,9 +35,10 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import TypeScriptClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 TypescriptContainerServer = partial(
@@ -49,35 +46,25 @@ TypescriptContainerServer = partial(
 )
 
 
-async def ensure_typescript_installed() -> None:
-    if shutil.which("typescript-language-server"):
-        return
-
-    logger.warning(
-        "typescript-language-server not found, attempting to install via npm..."
-    )
-
-    try:
-        # typescript-language-server requires the TypeScript compiler as a peer dependency
-        # Reference: https://github.com/typescript-language-server/typescript-language-server#installing
-        await anyio.run_process(
-            ["npm", "install", "-g", "typescript-language-server", "typescript"]
-        )
-        logger.info("Successfully installed typescript-language-server via npm")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install typescript-language-server and typescript. Please install them manually with 'npm install -g typescript-language-server typescript'. "
-            "See https://github.com/typescript-language-server/typescript-language-server for more information."
-        ) from e
-    else:
-        return
-
-
 TypescriptLocalServer = partial(
     LocalServer,
     program="typescript-language-server",
     args=["--stdio"],
-    ensure_installed=ensure_typescript_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "typescript-language-server",
+        commands=(
+            "npm",
+            "install",
+            "-g",
+            "typescript-language-server",
+            "typescript",
+        ),
+        error_message=(
+            "Could not install typescript-language-server and typescript. Please install them manually with 'npm install -g typescript-language-server typescript'. "
+            "See https://github.com/typescript-language-server/typescript-language-server for more information."
+        ),
+    ),
 )
 
 

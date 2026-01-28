@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import shutil
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.diagnostic import (
     WithDocumentDiagnostic,
@@ -51,9 +47,10 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import RustClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 RustAnalyzerContainerServer = partial(
@@ -61,26 +58,18 @@ RustAnalyzerContainerServer = partial(
 )
 
 
-async def ensure_rust_analyzer_installed() -> None:
-    if shutil.which("rust-analyzer"):
-        return
-
-    logger.warning("rust-analyzer not found, attempting to install...")
-
-    try:
-        await anyio.run_process(["rustup", "component", "add", "rust-analyzer"])
-        logger.info("Successfully installed rust-analyzer via rustup")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install rust-analyzer. Please install it manually with 'rustup component add rust-analyzer'. "
-            "See https://rust-analyzer.github.io/ for more information."
-        ) from e
-
-
 RustAnalyzerLocalServer = partial(
     LocalServer,
     program="rust-analyzer",
-    ensure_installed=ensure_rust_analyzer_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "rust-analyzer",
+        commands=("rustup", "component", "add", "rust-analyzer"),
+        error_message=(
+            "Could not install rust-analyzer. Please install it manually with 'rustup component add rust-analyzer'. "
+            "See https://rust-analyzer.github.io/ for more information."
+        ),
+    ),
 )
 
 

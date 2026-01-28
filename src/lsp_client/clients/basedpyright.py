@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import shutil
 import sys
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -47,9 +43,10 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import PythonClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 BasedpyrightContainerServer = partial(
@@ -57,36 +54,18 @@ BasedpyrightContainerServer = partial(
 )
 
 
-async def ensure_basedpyright_installed() -> None:
-    if shutil.which("basedpyright-langserver"):
-        return
-
-    installers = [
-        (["uv", "tool", "install", "basedpyright"], "uv"),
-        (["npm", "install", "-g", "basedpyright"], "npm"),
-        ([sys.executable, "-m", "pip", "install", "basedpyright"], "pip"),
-    ]
-
-    for cmd, name in installers:
-        if shutil.which(cmd[0]):
-            try:
-                logger.info("Attempting to install basedpyright via {}...", name)
-                await anyio.run_process(cmd)
-            except CalledProcessError:
-                continue
-            else:
-                return
-
-    raise ServerInstallationError(
-        "Could not install basedpyright. Please install it manually with 'uv tool install basedpyright', 'npm install -g basedpyright' or 'pip install basedpyright'."
-    )
-
-
 BasedpyrightLocalServer = partial(
     LocalServer,
     program="basedpyright-langserver",
     args=["--stdio"],
-    ensure_installed=ensure_basedpyright_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "basedpyright-langserver",
+        commands=(sys.executable, "-m", "pip", "install", "basedpyright"),
+        error_message=(
+            "Could not install basedpyright. Please install it manually with 'uv tool install basedpyright', 'npm install -g basedpyright' or 'pip install basedpyright'."
+        ),
+    ),
 )
 
 

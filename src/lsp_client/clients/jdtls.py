@@ -5,7 +5,6 @@ from functools import partial
 from typing import Any, override
 
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import WithNotifyDidChangeConfiguration
 from lsp_client.capability.request import (
@@ -38,30 +37,37 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import JavaClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 JdtlsContainerServer = partial(ContainerServer, image="ghcr.io/lsp-client/jdtls:latest")
 
 
-async def ensure_jdtls_installed() -> None:
-    if shutil.which("jdtls"):
-        return
-
-    logger.warning("jdtls not found in PATH.")
-    raise ServerInstallationError(
-        "jdtls not found. Please install Eclipse JDT Language Server (jdtls) and ensure it is in your PATH. "
-        "See https://github.com/eclipse/eclipse.jdt.ls for installation instructions."
-    )
+def install_cmd() -> list[str]:
+    if shutil.which("brew"):
+        return ["brew", "install", "jdtls"]
+    if shutil.which("pacman"):
+        return ["sudo", "pacman", "-S", "jdtls"]
+    return []
 
 
 JdtlsLocalServer = partial(
     LocalServer,
     program="jdtls",
-    args=[],
-    ensure_installed=ensure_jdtls_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        binary="jdtls",
+        commands=install_cmd(),
+        error_message=(
+            "jdtls not found. Please install Eclipse JDT Language Server (jdtls) and ensure it is in your PATH.\n"
+            "- macOS: 'brew install jdtls'\n"
+            "- Arch Linux: 'sudo pacman -S jdtls'\n"
+            "- Others: See https://github.com/eclipse/eclipse.jdt.ls for manual installation instructions."
+        ),
+    ),
 )
 
 

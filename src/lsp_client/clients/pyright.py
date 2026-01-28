@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import shutil
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -46,9 +42,10 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import PythonClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 PyrightContainerServer = partial(
@@ -56,29 +53,19 @@ PyrightContainerServer = partial(
 )
 
 
-async def ensure_pyright_installed() -> None:
-    if shutil.which("pyright-langserver"):
-        return
-
-    logger.warning("pyright-langserver not found, attempting to install via npm...")
-
-    try:
-        await anyio.run_process(["npm", "install", "-g", "pyright"])
-        logger.info("Successfully installed pyright-langserver via npm")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install pyright-langserver. Please install it manually with 'npm install -g pyright'. "
-            "See https://microsoft.github.io/pyright/ for more information."
-        ) from e
-    else:
-        return
-
-
 PyrightLocalServer = partial(
     LocalServer,
     program="pyright-langserver",
     args=["--stdio"],
-    ensure_installed=ensure_pyright_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "pyright-langserver",
+        commands=("npm", "install", "-g", "pyright"),
+        error_message=(
+            "Could not install pyright-langserver. Please install it manually with 'npm install -g pyright'. "
+            "See https://microsoft.github.io/pyright/ for more information."
+        ),
+    ),
 )
 
 

@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import shutil
+import sys
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -41,9 +38,10 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import PythonClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 PyreflyContainerServer = partial(
@@ -51,31 +49,19 @@ PyreflyContainerServer = partial(
 )
 
 
-async def ensure_pyrefly_installed() -> None:
-    """When using local runtime, check and install the server if necessary."""
-    if shutil.which("pyrefly"):
-        return
-
-    logger.warning("pyrefly not found, attempting to install...")
-
-    try:
-        if shutil.which("uv"):
-            await anyio.run_process(["uv", "tool", "install", "pyrefly"])
-        elif shutil.which("pip"):
-            await anyio.run_process(["pip", "install", "pyrefly"])
-        logger.info("Successfully installed pyrefly via uv tool")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install pyrefly. Please install it manually with 'pip install pyrefly'. "
-            "See https://pyrefly.org/ for more information."
-        ) from e
-
-
 PyreflyLocalServer = partial(
     LocalServer,
     program="pyrefly",
     args=["lsp"],
-    ensure_installed=ensure_pyrefly_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "pyrefly",
+        commands=(sys.executable, "-m", "pip", "install", "pyrefly"),
+        error_message=(
+            "Could not install pyrefly. Please install it manually with 'pip install pyrefly'. "
+            "See https://pyrefly.org/ for more information."
+        ),
+    ),
 )
 
 

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import shutil
 import sys
 from functools import partial
-from subprocess import CalledProcessError
 from typing import Any, override
 
-import anyio
 from attrs import define
-from loguru import logger
 
 from lsp_client.capability.notification import (
     WithNotifyDidChangeConfiguration,
@@ -42,37 +38,28 @@ from lsp_client.capability.server_request import (
     WithRespondWorkspaceFoldersRequest,
 )
 from lsp_client.clients.base import PythonClientBase
-from lsp_client.server import DefaultServers, ServerInstallationError
+from lsp_client.server import DefaultServers
 from lsp_client.server.container import ContainerServer
 from lsp_client.server.local import LocalServer
+from lsp_client.utils.install import install_via_commands
 from lsp_client.utils.types import lsp_type
 
 TyContainerServer = partial(ContainerServer, image="ghcr.io/lsp-client/ty:latest")
-
-
-async def ensure_ty_installed() -> None:
-    if shutil.which("ty"):
-        return
-
-    logger.warning("ty not found, attempting to install via pip...")
-
-    try:
-        await anyio.run_process([sys.executable, "-m", "pip", "install", "ty"])
-        logger.info("Successfully installed ty via pip")
-    except CalledProcessError as e:
-        raise ServerInstallationError(
-            "Could not install ty. Please install it manually with 'pip install ty' or 'uv tool install ty'. "
-            "See https://docs.astral.sh/ty/installation/ for more information."
-        ) from e
-    else:
-        return
 
 
 TyLocalServer = partial(
     LocalServer,
     program="ty",
     args=["server"],
-    ensure_installed=ensure_ty_installed,
+    ensure_installed=partial(
+        install_via_commands,
+        "ty",
+        commands=(sys.executable, "-m", "pip", "install", "ty"),
+        error_message=(
+            "Could not install ty. Please install it manually with 'pip install ty' or 'uv tool install ty'. "
+            "See https://docs.astral.sh/ty/installation/ for more information."
+        ),
+    ),
 )
 
 
