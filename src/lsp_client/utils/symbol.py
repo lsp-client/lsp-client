@@ -21,8 +21,9 @@ def contains(range: lsp_type.Range, position: lsp_type.Position) -> bool:
 
 def is_narrower(inner: lsp_type.Range, outer: lsp_type.Range) -> bool:
     """Return True if the inner range is fully contained within the outer range."""
-    return as_pos(inner.start) >= as_pos(outer.start) and as_pos(inner.end) <= as_pos(
-        outer.end
+    return (
+        as_pos(inner.start) >= as_pos(outer.start)  #
+        and as_pos(inner.end) <= as_pos(outer.end)
     )
 
 
@@ -37,14 +38,24 @@ class DocumentSymbolPath:
     the root symbol and proceeding through each nested child.
     """
 
-    symbols: tuple[DocumentSymbolName, ...] = field(converter=tuple)
+    symbols: list[DocumentSymbolName] = field(converter=list)
+
+    @classmethod
+    def from_symbols(cls, *symbol: DocumentSymbolName) -> DocumentSymbolPath:
+        """Create a DocumentSymbolPath from the given sequence of symbol names."""
+        return cls(list(symbol))
+
+    @classmethod
+    def from_str(cls, path_str: str) -> DocumentSymbolPath:
+        """Create a DocumentSymbolPath from a dot-separated string representation."""
+        return cls(path_str.split("."))
 
     def format(self) -> str:
         """Return the dot-separated string representation of the path."""
         return ".".join(self.symbols)
 
     def __truediv__(self, other: DocumentSymbolName) -> DocumentSymbolPath:
-        return DocumentSymbolPath((*self.symbols, other))
+        return DocumentSymbolPath.from_symbols(*self.symbols, other)
 
 
 @frozen(slots=False)
@@ -110,7 +121,7 @@ class DocumentSymbolHierarchy:
     def flattened(self) -> dict[DocumentSymbolPath, lsp_type.DocumentSymbol]:
         """Return a mapping of all paths to their respective symbols."""
         result: dict[DocumentSymbolPath, lsp_type.DocumentSymbol] = {}
-        stack = [(DocumentSymbolPath((self.root.name,)), self.root)]
+        stack = [(DocumentSymbolPath.from_symbols(self.root.name), self.root)]
         while stack:
             path, node = stack.pop()
             result[path] = node
