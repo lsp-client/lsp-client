@@ -1,0 +1,3 @@
+[submodule "packages/lsp-containers"]
+	path = packages/lsp-containers
+	url = https://github.com/lsp-client/lsp-containers.git
