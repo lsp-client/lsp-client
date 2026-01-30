@@ -80,7 +80,7 @@ class DocumentSymbolHierarchy:
         # This provides efficient O(1) reverse lookup for symbols obtained from this hierarchy.
         return {id(s): path for path, s in self.flattened.items()}
 
-    def at(self, path: DocumentSymbolPath) -> lsp_type.DocumentSymbol | None:
+    def at_path(self, path: DocumentSymbolPath) -> lsp_type.DocumentSymbol | None:
         """Return the symbol at the given path, or None if not found."""
         if not path.symbols or path.symbols[0] != self.root.name:
             return None
@@ -116,6 +116,12 @@ class DocumentSymbolHierarchy:
     def get_path(self, symbol: lsp_type.DocumentSymbol) -> DocumentSymbolPath | None:
         """Return the path to the given symbol object, or None if not in hierarchy."""
         return self._symbol_to_path.get(id(symbol))
+
+    def get_position(self, symbol: lsp_type.DocumentSymbol) -> lsp_type.Position | None:
+        """Return the start position of the given symbol, or None if not in hierarchy."""
+        if self._symbol_to_path.get(id(symbol)) is None:
+            return None
+        return symbol.selection_range.start
 
     @cached_property
     def flattened(self) -> dict[DocumentSymbolPath, lsp_type.DocumentSymbol]:

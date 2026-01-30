@@ -39,7 +39,7 @@ def test_is_narrower():
 
 
 def test_document_symbol_path():
-    path = DocumentSymbolPath(("root", "child"))
+    path = DocumentSymbolPath.from_symbols("root", "child")
     assert path.format() == "root.child"
 
     new_path = path / "grandchild"
@@ -105,12 +105,16 @@ def test_document_symbol_hierarchy():
     hierarchy = DocumentSymbolHierarchy(root=root)
 
     # Test at
-    assert hierarchy.at(DocumentSymbolPath(("root", "child1"))) is child1
     assert (
-        hierarchy.at(DocumentSymbolPath(("root", "child1", "grandchild1")))
+        hierarchy.at_path(DocumentSymbolPath.from_symbols("root", "child1")) is child1
+    )
+    assert (
+        hierarchy.at_path(
+            DocumentSymbolPath.from_symbols("root", "child1", "grandchild1")
+        )
         is grandchild1
     )
-    assert hierarchy.at(DocumentSymbolPath(("root", "invalid"))) is None
+    assert hierarchy.at_path(DocumentSymbolPath.from_symbols("root", "invalid")) is None
 
     # Test get_path
     path = hierarchy.get_path(grandchild1)
@@ -138,4 +142,4 @@ def test_document_symbol_hierarchy():
     # Test flattened
     flattened = hierarchy.flattened
     assert len(flattened) == 4
-    assert flattened[DocumentSymbolPath(("root", "child2"))] is child2
+    assert flattened[DocumentSymbolPath.from_symbols("root", "child2")] is child2
