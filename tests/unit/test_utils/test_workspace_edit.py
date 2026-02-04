@@ -54,12 +54,12 @@ class MockClient(CapabilityClientProtocol):
     async def notify(self, msg: Notification) -> None:
         pass
 
-    async def read_file(self, file_path: AnyPath) -> str:
+    async def read_file(self, file_path: AnyPath, *, encoding: str = "utf-8") -> str:
         if self._temp_dir:
             # Read from actual filesystem if temp_dir is set
             path = anyio.Path(file_path)
             if await path.exists():
-                return await path.read_text()
+                return await path.read_text(encoding=encoding)
             raise FileNotFoundError(f"File not found: {file_path}")
 
         path_str = str(file_path)

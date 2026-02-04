@@ -42,7 +42,7 @@ class MockClient:
     async def open_files(self, *file_paths):
         yield
 
-    async def read_file(self, file_path):
+    async def read_file(self, file_path, *, encoding="utf-8"):
         return ""
 
     async def write_file(self, uri, content):

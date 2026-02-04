@@ -35,11 +35,11 @@ class MockLSPClient(WithRespondApplyEdit):
     def get_document_state(self) -> DocumentStateManager:
         return self.document_state
 
-    async def read_file(self, file_path: AnyPath) -> str:
+    async def read_file(self, file_path: AnyPath, *, encoding: str = "utf-8") -> str:
         if self._temp_dir:
             path = anyio.Path(file_path)
             if await path.exists():
-                return await path.read_text()
+                return await path.read_text(encoding=encoding)
             raise FileNotFoundError(f"File not found: {file_path}")
 
         path_str = str(file_path)

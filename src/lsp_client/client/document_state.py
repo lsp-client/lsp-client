@@ -24,7 +24,7 @@ class DocumentState:
 
     content: str
     version: int
-    encoding: str
+    encoding: str = "utf-8"
 
 
 @define
@@ -73,12 +73,8 @@ class DocumentStateManager:
                 content = str(best_match)
                 encoding = best_match.encoding
             else:
-                raise UnicodeDecodeError(
-                    "unknown",
-                    content_bytes,
-                    0,
-                    len(content_bytes),
-                    "Unable to decode file content",
+                raise ValueError(
+                    f"Unable to decode file content for {uri}: charset detection failed"
                 )
 
             new_states[uri] = DocumentState(content, version=0, encoding=encoding)
@@ -191,7 +187,7 @@ class DocumentStateManager:
             uri: Document URI
 
         Returns:
-            Current document encoding, or None if not registered.
+            Current document encoding, or the default if not registered.
         """
         if state := self._states.get(uri):
             return state.encoding
