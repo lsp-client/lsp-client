@@ -93,9 +93,15 @@ class Client(
     initialization_options: dict[str, Any] = field(factory=dict)
     """Custom initialization options for the server."""
 
+    encoding: str = "utf-8"
+    """Default encoding for reading files."""
+
     _server: Server = field(init=False)
-    _doc: DocumentStateManager = field(factory=DocumentStateManager, init=False)
+    _doc: DocumentStateManager = field(init=False)
     _config: ConfigurationMap = field(factory=ConfigurationMap, init=False)
+
+    def __attrs_post_init__(self) -> None:
+        self._doc = DocumentStateManager(encoding=self.encoding)
 
     @cached_property
     def _workspace(self) -> Workspace:
@@ -222,7 +228,7 @@ class Client(
             return content
 
         path = self.from_uri(uri, relative=False)
-        return await anyio.Path(path).read_text()
+        return await anyio.Path(path).read_text(encoding=self.encoding)
 
     async def write_file(self, uri: str, content: str) -> None:
         """Write text content to a file and automatically sync document state.
@@ -262,7 +268,7 @@ class Client(
                 await client.write_file(client.as_uri("example.py"), new_content)
         """
         path = from_local_uri(uri)
-        await anyio.Path(path).write_text(content)
+        await anyio.Path(path).write_text(content, encoding=self.encoding)
 
         if (new_version := self._doc.update_content(uri, content)) is not None:
             file_path = self.from_uri(uri, relative=False)
@@ -273,6 +279,71 @@ class Client(
                 ],
                 version=new_version,
             )
+
+    @override
+    @asynccontextmanager
+    @logger.catch(reraise=True)
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with (
+            asyncer.create_task_group() as tg,
+            self.run_server() as (server, receiver),
+        ):
+            self._server = server
+
+            # start to receive server requests here,
+            # since server notification can be sent before `initialize`
+            tg.soonify(self._dispatch_server_requests)(receiver)
+
+            client_capabilities = build_client_capabilities(self.__class__)
+            root_workspace = self.get_workspace().get(WORKSPACE_ROOT_DIR)
+            root_path = root_workspace.path.as_posix() if root_workspace else None
+            root_uri = root_workspace.uri if root_workspace else None
+
+            _ = await self._initialize(
+                lsp_type.InitializeParams(
+                    capabilities=client_capabilities,
+                    process_id=os.getpid(),
+                    client_info=lsp_type.ClientInfo(
+                        name="lsp-lient",
+                        version="1.81.0-insider",
+                    ),
+                    locale="en-us",
+                    # if single workspace root provided,
+                    # set both `root_path` and `root_uri` for compatibility
+                    root_path=root_path,
+                    root_uri=root_uri,
+                    initialization_options=self.initialization_options,
+                    trace=lsp_type.TraceValue.Verbose,
+                    workspace_folders=self._workspace.to_folders(),
+                )
+            )
+
+            if init_config := self.create_default_config():
+                await self._config.update_global(init_config)
+
+            try:
+                yield self
+            finally:
+                await self.get_server().wait_requests_completed(
+                    timeout=self.request_timeout
+                )
+                _ = await self._shutdown()
+                await self._exit()
+
+    @asynccontextmanager
+    async def unmanaged(self) -> AsyncGenerator[Self]:
+        """
+        Unmanaged mode. In this mode, the client will skip automatic lifecycle management (initialize/shutdown).
+        """
+
+        async with (
+            asyncer.create_task_group() as tg,
+            self.run_server() as (server, receiver),
+        ):
+            self._server = server
+            tg.soonify(self._dispatch_server_requests)(receiver)
+
+            yield self
 
     @override
     async def request[R](
@@ -362,68 +433,3 @@ class Client(
         """
 
         await self.notify(lsp_type.ExitNotification())
-
-    @override
-    @asynccontextmanager
-    @logger.catch(reraise=True)
-    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
-        async with (
-            asyncer.create_task_group() as tg,
-            self.run_server() as (server, receiver),
-        ):
-            self._server = server
-
-            # start to receive server requests here,
-            # since server notification can be sent before `initialize`
-            tg.soonify(self._dispatch_server_requests)(receiver)
-
-            client_capabilities = build_client_capabilities(self.__class__)
-            root_workspace = self.get_workspace().get(WORKSPACE_ROOT_DIR)
-            root_path = root_workspace.path.as_posix() if root_workspace else None
-            root_uri = root_workspace.uri if root_workspace else None
-
-            _ = await self._initialize(
-                lsp_type.InitializeParams(
-                    capabilities=client_capabilities,
-                    process_id=os.getpid(),
-                    client_info=lsp_type.ClientInfo(
-                        name="lsp-lient",
-                        version="1.81.0-insider",
-                    ),
-                    locale="en-us",
-                    # if single workspace root provided,
-                    # set both `root_path` and `root_uri` for compatibility
-                    root_path=root_path,
-                    root_uri=root_uri,
-                    initialization_options=self.initialization_options,
-                    trace=lsp_type.TraceValue.Verbose,
-                    workspace_folders=self._workspace.to_folders(),
-                )
-            )
-
-            if init_config := self.create_default_config():
-                await self._config.update_global(init_config)
-
-            try:
-                yield self
-            finally:
-                await self.get_server().wait_requests_completed(
-                    timeout=self.request_timeout
-                )
-                _ = await self._shutdown()
-                await self._exit()
-
-    @asynccontextmanager
-    async def unmanaged(self) -> AsyncGenerator[Self]:
-        """
-        Unmanaged mode. In this mode, the client will skip automatic lifecycle management (initialize/shutdown).
-        """
-
-        async with (
-            asyncer.create_task_group() as tg,
-            self.run_server() as (server, receiver),
-        ):
-            self._server = server
-            tg.soonify(self._dispatch_server_requests)(receiver)
-
-            yield self

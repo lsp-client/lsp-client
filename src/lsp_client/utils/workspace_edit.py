@@ -242,7 +242,7 @@ class WorkspaceEditApplicator:
             await parent.mkdir(parents=True, exist_ok=True)
 
         # Create the file
-        _ = await file_path.write_text("")
+        await self.client.write_file(uri, "")
         logger.debug(f"Created file: {uri}")
 
     async def _apply_rename_file(self, change: lsp_type.RenameFile) -> None:
