@@ -67,7 +67,12 @@ class DocumentStateManager:
         async def read_file(uri: str) -> None:
             path = from_local_uri(uri)
             content_bytes = await anyio.Path(path).read_bytes()
-            content = str(from_bytes(content_bytes).best())
+            match = from_bytes(content_bytes).best()
+            if match is not None:
+                content = str(match)
+            else:
+                # Fallback to UTF-8 decoding if charset detection fails
+                content = content_bytes.decode("utf-8", errors="replace")
             new_states[uri] = DocumentState(content=content, version=0)
 
         async with asyncer.create_task_group() as tg:
