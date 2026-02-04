@@ -162,3 +162,19 @@ def test_close_zero_or_negative_ref_count():
     assert closed[0] == u1
     assert u1 not in manager._ref_counts
     assert u1 not in manager._states
+
+
+@pytest.mark.anyio
+async def test_open_non_utf8_encoding(tmp_path: Path):
+    """Test opening a file with non-UTF-8 encoding."""
+    manager = DocumentStateManager()
+    f1 = tmp_path / "f1.py"
+    content = "这是一个测试文件，包含一些中文字符以测试编码检测功能。"  # noqa: RUF001
+    f1.write_bytes(content.encode("gbk"))
+    u1 = f1.as_uri()
+
+    new_docs = await manager.open([u1])
+    assert len(new_docs) == 1
+    assert new_docs[u1].content == content
+    assert new_docs[u1].encoding.lower() in ("gbk", "gb2312", "cp936", "gb18030")
+    assert manager.get_encoding(u1).lower() in ("gbk", "gb2312", "cp936", "gb18030")

@@ -19,10 +19,12 @@ class DocumentState:
     Attributes:
         content: Current text content of the document
         version: Current version number (incremented on each change)
+        encoding: The encoding used to decode the document from bytes
     """
 
     content: str
     version: int
+    encoding: str = "utf-8"
 
 
 @define
@@ -67,13 +69,15 @@ class DocumentStateManager:
         async def read_file(uri: str) -> None:
             path = from_local_uri(uri)
             content_bytes = await anyio.Path(path).read_bytes()
-            match = from_bytes(content_bytes).best()
-            if match is not None:
-                content = str(match)
+            if best_match := from_bytes(content_bytes).best():
+                content = str(best_match)
+                encoding = best_match.encoding
             else:
-                # Fallback to UTF-8 decoding if charset detection fails
-                content = content_bytes.decode("utf-8", errors="replace")
-            new_states[uri] = DocumentState(content=content, version=0)
+                raise ValueError(
+                    f"Unable to decode file content for {uri}: charset detection failed"
+                )
+
+            new_states[uri] = DocumentState(content, version=0, encoding=encoding)
 
         async with asyncer.create_task_group() as tg:
             for uri in new_uris:
@@ -107,7 +111,7 @@ class DocumentStateManager:
         return closed_uris
 
     def register(
-        self, uri: str, content: str, version: int = 0
+        self, uri: str, content: str, version: int = 0, encoding: str = "utf-8"
     ) -> DocumentState | None:
         """
         Register a newly opened document manually.
@@ -116,13 +120,14 @@ class DocumentStateManager:
             uri: Document URI
             content: Initial document content
             version: Initial version (defaults to 0)
+            encoding: Document encoding (defaults to utf-8)
 
         Returns:
             The newly created DocumentState, or None if the URI is already registered.
         """
         if uri in self._states:
             return None
-        state = DocumentState(content=content, version=version)
+        state = DocumentState(content=content, version=version, encoding=encoding)
         self._states[uri] = state
         # Manual registration implies a reference count of 1
         self._ref_counts[uri] = 1
@@ -174,6 +179,20 @@ class DocumentStateManager:
             return state.content
         return None
 
+    def get_encoding(self, uri: str, *, default: str = "utf-8") -> str:
+        """
+        Get current encoding of a document.
+
+        Args:
+            uri: Document URI
+
+        Returns:
+            Current document encoding, or the default if not registered.
+        """
+        if state := self._states.get(uri):
+            return state.encoding
+        return default
+
     def increment_version(self, uri: str) -> int | None:
         """
         Increment version and return the new version.
@@ -187,7 +206,7 @@ class DocumentStateManager:
         if state := self._states.get(uri):
             new_version = state.version + 1
             self._states[uri] = DocumentState(
-                content=state.content, version=new_version
+                content=state.content, version=new_version, encoding=state.encoding
             )
             return new_version
         return None
@@ -205,6 +224,8 @@ class DocumentStateManager:
         """
         if state := self._states.get(uri):
             new_version = state.version + 1
-            self._states[uri] = DocumentState(content=content, version=new_version)
+            self._states[uri] = DocumentState(
+                content=content, version=new_version, encoding=state.encoding
+            )
             return new_version
         return None

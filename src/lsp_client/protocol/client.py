@@ -60,7 +60,7 @@ class CapabilityClientProtocol(Protocol):
     async def notify(self, msg: Notification) -> None: ...
 
     @abstractmethod
-    async def read_file(self, file_path: AnyPath) -> str:
+    async def read_file(self, file_path: AnyPath, *, encoding: str = ...) -> str:
         """Read file content by path."""
 
     @abstractmethod
