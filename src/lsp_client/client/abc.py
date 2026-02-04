@@ -211,7 +211,7 @@ class Client(
                     tg.soonify(self.notify_text_document_closed)(from_local_uri(uri))
 
     @override
-    async def read_file(self, file_path: AnyPath) -> str:
+    async def read_file(self, file_path: AnyPath, *, encoding: str = "utf-8") -> str:
         """Read the content of a file in the workspace.
 
         If the file is currently tracked (open), returns the in-memory content.
@@ -222,7 +222,7 @@ class Client(
             return content
 
         path = self.from_uri(uri, relative=False)
-        return await anyio.Path(path).read_text()
+        return await anyio.Path(path).read_text(encoding=encoding)
 
     async def write_file(self, uri: str, content: str) -> None:
         """Write text content to a file and automatically sync document state.
@@ -261,8 +261,10 @@ class Client(
                 # Write and auto-sync (state + LSP notification handled automatically)
                 await client.write_file(client.as_uri("example.py"), new_content)
         """
+
         path = from_local_uri(uri)
-        await anyio.Path(path).write_text(content)
+        encoding = self._doc.get_encoding(uri, default="utf-8")
+        await anyio.Path(path).write_text(content, encoding=encoding)
 
         if (new_version := self._doc.update_content(uri, content)) is not None:
             file_path = self.from_uri(uri, relative=False)
