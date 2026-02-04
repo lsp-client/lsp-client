@@ -6,6 +6,7 @@ from collections.abc import Iterable
 import anyio
 import asyncer
 from attrs import Factory, define, frozen
+from charset_normalizer import from_bytes
 
 from lsp_client.utils.workspace import from_local_uri
 
@@ -39,18 +40,13 @@ class DocumentStateManager:
 
     _states: dict[str, DocumentState] = Factory(dict)
     _ref_counts: Counter[str] = Factory(Counter)
-    encoding: str = "utf-8"
 
-    async def open(
-        self, uris: Iterable[str], encoding: str | None = None
-    ) -> dict[str, DocumentState]:
+    async def open(self, uris: Iterable[str]) -> dict[str, DocumentState]:
         """
         Open files and track state. Only return newly opened documents.
 
         Args:
             uris: List of file URIs to open
-            encoding: Optional encoding to use for reading the files.
-                      Defaults to the manager's default encoding.
 
         Returns:
             Dictionary mapping URIs to DocumentState for files that were
@@ -67,12 +63,11 @@ class DocumentStateManager:
             return {}
 
         new_states: dict[str, DocumentState] = {}
-        enc = encoding or self.encoding
 
         async def read_file(uri: str) -> None:
             path = from_local_uri(uri)
             content_bytes = await anyio.Path(path).read_bytes()
-            content = content_bytes.decode(enc)
+            content = str(from_bytes(content_bytes).best())
             new_states[uri] = DocumentState(content=content, version=0)
 
         async with asyncer.create_task_group() as tg:

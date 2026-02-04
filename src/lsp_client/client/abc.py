@@ -93,15 +93,9 @@ class Client(
     initialization_options: dict[str, Any] = field(factory=dict)
     """Custom initialization options for the server."""
 
-    encoding: str = "utf-8"
-    """Default encoding for reading files."""
-
     _server: Server = field(init=False)
-    _doc: DocumentStateManager = field(init=False)
+    _doc: DocumentStateManager = field(factory=DocumentStateManager, init=False)
     _config: ConfigurationMap = field(factory=ConfigurationMap, init=False)
-
-    def __attrs_post_init__(self) -> None:
-        self._doc = DocumentStateManager(encoding=self.encoding)
 
     @cached_property
     def _workspace(self) -> Workspace:
@@ -228,7 +222,7 @@ class Client(
             return content
 
         path = self.from_uri(uri, relative=False)
-        return await anyio.Path(path).read_text(encoding=self.encoding)
+        return await anyio.Path(path).read_text()
 
     async def write_file(self, uri: str, content: str) -> None:
         """Write text content to a file and automatically sync document state.
@@ -268,7 +262,7 @@ class Client(
                 await client.write_file(client.as_uri("example.py"), new_content)
         """
         path = from_local_uri(uri)
-        await anyio.Path(path).write_text(content, encoding=self.encoding)
+        await anyio.Path(path).write_text(content)
 
         if (new_version := self._doc.update_content(uri, content)) is not None:
             file_path = self.from_uri(uri, relative=False)

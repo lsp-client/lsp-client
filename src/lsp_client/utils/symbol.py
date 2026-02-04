@@ -38,17 +38,17 @@ class DocumentSymbolPath:
     the root symbol and proceeding through each nested child.
     """
 
-    symbols: list[DocumentSymbolName] = field(converter=list)
+    symbols: tuple[DocumentSymbolName, ...] = field(converter=tuple)
 
     @classmethod
     def from_symbols(cls, *symbol: DocumentSymbolName) -> DocumentSymbolPath:
         """Create a DocumentSymbolPath from the given sequence of symbol names."""
-        return cls(list(symbol))
+        return cls(tuple(symbol))
 
     @classmethod
     def from_str(cls, path_str: str) -> DocumentSymbolPath:
         """Create a DocumentSymbolPath from a dot-separated string representation."""
-        return cls(path_str.split("."))
+        return cls(tuple(path_str.split(".")))
 
     def format(self) -> str:
         """Return the dot-separated string representation of the path."""
