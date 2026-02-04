@@ -183,7 +183,7 @@ class DocumentStateManager:
             return state.content
         return None
 
-    def get_encoding(self, uri: str, *, default: str = "utf-8") -> str | None:
+    def get_encoding(self, uri: str, *, default: str = "utf-8") -> str:
         """
         Get current encoding of a document.
 
