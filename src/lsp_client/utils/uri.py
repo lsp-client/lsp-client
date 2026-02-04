@@ -13,4 +13,4 @@ def from_local_uri(uri: str) -> Path:
     """
 
     parsed = urlparse(uri)
-    return Path(url2pathname(unquote(parsed.path)))
+    return Path(unquote(url2pathname(parsed.path)))
