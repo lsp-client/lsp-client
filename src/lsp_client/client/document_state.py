@@ -74,11 +74,11 @@ class DocumentStateManager:
                 encoding = best_match.encoding
             else:
                 raise UnicodeDecodeError(
-                    "Unable to decode file content",
+                    "unknown",
                     content_bytes,
                     0,
-                    1,
-                    "unknown encoding",
+                    len(content_bytes),
+                    "Unable to decode file content",
                 )
 
             new_states[uri] = DocumentState(content, version=0, encoding=encoding)
