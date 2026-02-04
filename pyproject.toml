@@ -17,6 +17,7 @@ dependencies = [
     "anyio>=4.10.0",
     "asyncer>=0.0.10",
     "attrs>=25.3.0",
+    "charset-normalizer>=3.4.4",
     "loguru>=0.7.3",
     "lsprotocol>=2025.0.0",
     "pydantic-settings>=2.12.0",
