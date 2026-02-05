@@ -7,7 +7,7 @@
 [![Documentation](https://img.shields.io/badge/docs-pdoc-blue)](https://observerw.github.io/lsp-client/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/observerw/lsp-client)
 
-A production-ready, async-first Python client for the Language Server Protocol (LSP). Built for developers who need fine-grained control, container isolation, and extensibility when integrating language intelligence into their tools.
+A production-ready, async-first Python client for the Language Server Protocol (LSP). Built for developers who need fine-grained control and extensibility when integrating language intelligence into their tools.
 
 ## Why lsp-client?
 
@@ -16,7 +16,6 @@ A production-ready, async-first Python client for the Language Server Protocol (
 - **🧩 Intelligent Capability Management**: Zero-overhead mixin system with automatic registration, negotiation, and availability checks. Only access methods for registered capabilities.
 - **🎨 Ergonomic API Design**: Every capability method is designed for developer productivity. The SDK handles complex LSP response types (like `Location` vs `LocationLink`), providing consistent, high-level Python objects instead of raw JSON-RPC structures.
 - **🎯 Universal LSP Support**: Full 3.17 specification coverage. Supports all standard client requests, notifications, and server-to-client interactions. If a capability exists in the LSP spec, you can use or implement it here.
-- **🐳 Container-First Architecture**: Containers as first-class citizens with workspace mounting, path translation, and lifecycle management. Pre-built images available, seamless switching between local and container environments.
 - **🛡️ Fail-Safe Capability Validation**: Sophisticated pre-flight checks ensure that the server's capabilities perfectly match the client's requirements before the first request is ever sent. Catch configuration mismatches at startup rather than during runtime.
 - **⚡ Production-Ready & Modern**: Explicit environment control with no auto-downloads. Built with async patterns, comprehensive error handling, retries, and full type safety.
 
@@ -49,37 +48,10 @@ async def main():
 anyio.run(main)
 ```
 
-### Containerized Language Server
-
-```python
-import anyio
-from pathlib import Path
-from lsp_client import Position, PyrightClient
-from lsp_client.clients.pyright import PyrightContainerServer
-
-async def main():
-    workspace = Path.cwd()
-    async with PyrightClient(
-        server=PyrightContainerServer(),
-        workspace=workspace
-    ) as client:
-        # Find definition of a symbol
-        definitions = await client.request_definition_locations(
-            file_path="example.py",
-            position=Position(10, 5)
-        )
-        if definitions:
-            for def_loc in definitions:
-                print(f"Definition at {def_loc.uri}: {def_loc.range}")
-
-anyio.run(main)
-```
-
 ### More Examples
 
 The `examples/` directory contains comprehensive usage examples:
 
-- `pyright_container.py` - Using Pyright in Docker for Python analysis
 - `rust_analyzer.py` - Rust code intelligence with Rust-Analyzer
 - `pyrefly.py` - Python linting and analysis with Pyrefly
 - `protocol.py` - Direct LSP protocol usage
@@ -87,7 +59,7 @@ The `examples/` directory contains comprehensive usage examples:
 Run examples with:
 
 ```bash
-uv run examples/pyright_container.py
+uv run examples/pyrefly.py
 ```
 
 ## Client Definition
@@ -106,10 +78,7 @@ class MyPythonClient(
 ):
     def create_default_servers(self) -> DefaultServers:
         return DefaultServers(
-            # support both local ...
             local=LocalServer(program="pylsp", args=["--stdio"]),
-            # ... and containerized server!
-            container=ContainerServer(image="ghcr.io/observerw/lsp-client/python-lsp-server")
         )
 
     def create_initialization_options(self) -> dict:
@@ -121,18 +90,16 @@ class MyPythonClient(
 
 ## Current Supported Language Servers
 
-| Language Server            | Module Path                        | Language              | Container Image                           |
-| -------------------------- | ---------------------------------- | --------------------- | ----------------------------------------- |
-| Pyright                    | `lsp_client.clients.pyright`       | Python                | `ghcr.io/lsp-client/pyright:latest`       |
-| Basedpyright               | `lsp_client.clients.basedpyright`  | Python                | `ghcr.io/lsp-client/basedpyright:latest`  |
-| Pyrefly                    | `lsp_client.clients.pyrefly`       | Python                | `ghcr.io/lsp-client/pyrefly:latest`       |
-| Ty                         | `lsp_client.clients.ty`            | Python                | `ghcr.io/lsp-client/ty:latest`            |
-| Rust Analyzer              | `lsp_client.clients.rust_analyzer` | Rust                  | `ghcr.io/lsp-client/rust-analyzer:latest` |
-| Deno                       | `lsp_client.clients.deno`          | TypeScript/JavaScript | `ghcr.io/lsp-client/deno:latest`          |
-| TypeScript Language Server | `lsp_client.clients.typescript`    | TypeScript/JavaScript | `ghcr.io/lsp-client/typescript:latest`    |
-| Gopls                      | `lsp_client.clients.gopls`         | Go                    | `ghcr.io/lsp-client/gopls:latest`         |
-
-Container images are automatically updated weekly to ensure access to the latest language server versions.
+| Language Server            | Module Path                        | Language              |
+| -------------------------- | ---------------------------------- | --------------------- |
+| Pyright                    | `lsp_client.clients.pyright`       | Python                |
+| Basedpyright               | `lsp_client.clients.basedpyright`  | Python                |
+| Pyrefly                    | `lsp_client.clients.pyrefly`       | Python                |
+| Ty                         | `lsp_client.clients.ty`            | Python                |
+| Rust Analyzer              | `lsp_client.clients.rust_analyzer` | Rust                  |
+| Deno                       | `lsp_client.clients.deno`          | TypeScript/JavaScript |
+| TypeScript Language Server | `lsp_client.clients.typescript`    | TypeScript/JavaScript |
+| Gopls                      | `lsp_client.clients.gopls`         | Go                    |
 
 ### Key Benefits
 
@@ -150,16 +117,11 @@ Container images are automatically updated weekly to ensure access to the latest
 
 1. **Explicit Server**: If you provide a specific `Server` instance, it will be used first.
 2. **Local Environment**: It checks if the required language server is already installed in the local system path.
-3. **Container Fallback**: If no local server is found, it automatically falls back to a containerized version (using Docker), ensuring zero-setup for end users.
-4. **Auto-Install**: As a last resort, it can attempt to automatically install the server locally if an installation hook is defined.
+3. **Auto-Install**: As a last resort, it can attempt to automatically install the server locally if an installation hook is defined.
 
 ### Fine-Grained Capability Control
 
 The mixin-based architecture allows you to define exactly what your client supports. This is not just for organization; it directly affects the `Initialize` request sent to the server, ensuring the server only sends relevant notifications and doesn't waste resources on unused features.
-
-### Transparent Path Translation
-
-When using containerized servers, `lsp-client` automatically handles path translation between your host machine and the container. You work with local paths, and the client ensures the server sees the correct container-relative paths.
 
 ### Smart Configuration Management
 
@@ -176,7 +138,7 @@ The library is built with extensibility as a core principle. You are never locke
 
 - **Capability Overriding**: You can easily customize how the client handles specific LSP requests or notifications by overriding the capability methods. Want to filter diagnostics or transform hover content before it reaches your application? Just override the corresponding method in your custom client.
 - **Middleware Support**: Intercept and modify outgoing requests or incoming responses to implement custom logic like caching, logging, or request debouncing.
-- **Custom Servers**: Beyond the built-in local and container servers, you can implement your own `Server` class to connect to language servers over custom transports (e.g., WebSockets, named pipes, or remote SSH).
+- **Custom Servers**: You can implement your own `Server` class to connect to language servers over custom transports (e.g., WebSockets, named pipes, or remote SSH).
 
 ## Contributing
 
@@ -184,8 +146,11 @@ We welcome contributions! Please see our [Contributing Guide](docs/contribution/
 
 - Adding new language server support
 - Extending protocol capabilities
-- Container image updates
 - Development workflow
+
+## Containerization Support
+
+**Note**: Container-based language server execution is currently under maintenance and refactoring. This feature will be re-enabled in the next minor version release with improved stability and performance. For now, please use local language server installations.
 
 ## License
 
