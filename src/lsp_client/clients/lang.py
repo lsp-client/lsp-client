@@ -7,10 +7,10 @@ from typing import Final, Literal, NamedTuple
 
 from lsp_client.client.abc import Client
 
-from .basedpyright import BasedpyrightClient
 from .deno.client import DenoClient
 from .gopls import GoplsClient
 from .jdtls import JdtlsClient
+from .pyrefly import PyreflyClient
 from .rust_analyzer import RustAnalyzerClient
 from .typescript import TypescriptClient
 
@@ -24,14 +24,14 @@ type Language = Literal[
 ]
 
 GoClient = GoplsClient
-PythonClient = BasedpyrightClient
+PythonClient = PyreflyClient
 RustClient = RustAnalyzerClient
 TypeScriptClient = TypescriptClient
 JavaClient = JdtlsClient
 
 lang_clients: Final[dict[Language, type[Client]]] = {
     "go": GoplsClient,
-    "python": BasedpyrightClient,
+    "python": PyreflyClient,
     "rust": RustAnalyzerClient,
     "typescript": TypescriptClient,
     "deno": DenoClient,
