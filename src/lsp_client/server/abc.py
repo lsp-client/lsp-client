@@ -13,6 +13,7 @@ from anyio.streams.buffered import BufferedByteReceiveStream
 from attrs import define, field
 from loguru import logger
 
+from lsp_client.jsonrpc import JsonRpcTransportError
 from lsp_client.jsonrpc.channel import ResponseTable, response_channel
 from lsp_client.jsonrpc.parse import read_raw_package, write_raw_package
 from lsp_client.jsonrpc.types import (
@@ -152,7 +153,7 @@ class StreamServer(Server):
         try:
             package = await read_raw_package(self._buffered_receive_stream)
             logger.debug("Received package: {}", package)
-        except (anyio.EndOfStream, anyio.IncompleteRead, anyio.ClosedResourceError):
+        except (anyio.EndOfStream, anyio.IncompleteRead, anyio.ClosedResourceError, JsonRpcTransportError):
             logger.debug("Stream closed")
             return None
         else:

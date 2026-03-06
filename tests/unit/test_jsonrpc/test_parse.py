@@ -16,14 +16,14 @@ async def test_read_raw_package():
     mock_receiver = AsyncMock(spec=BufferedByteReceiveStream)
 
     # Mock header
-    mock_receiver.receive_until.side_effect = [b"Content-Length: 18\r\n", b"\r\n"]
+    mock_receiver.receive_until.return_value = b"Content-Length: 18\r\n\r\n"
     # Mock body
     body = {"test": "data"}
     mock_receiver.receive_exactly.return_value = json.dumps(body).encode("utf-8")
 
     result = await read_raw_package(mock_receiver)
     assert result == body
-    assert mock_receiver.receive_until.call_count == 2
+    mock_receiver.receive_until.assert_called_once_with(b"\r\n\r\n", max_bytes=65536)
     mock_receiver.receive_exactly.assert_called_once_with(18)
 
 
@@ -39,9 +39,9 @@ async def test_read_raw_package_closed():
 @pytest.mark.asyncio
 async def test_read_raw_package_invalid_header():
     mock_receiver = AsyncMock(spec=BufferedByteReceiveStream)
-    mock_receiver.receive_until.return_value = b"Invalid-Header\r\n"
+    mock_receiver.receive_until.return_value = b"Invalid-Header\r\n\r\n"
 
-    with pytest.raises(JsonRpcParseError, match="Invalid LSP response header"):
+    with pytest.raises(JsonRpcParseError, match="Missing Content-Length header"):
         await read_raw_package(mock_receiver)
 
 
@@ -57,3 +57,43 @@ async def test_write_raw_package():
     expected = f"Content-Length: {len(dumped)}\r\n\r\n".encode() + dumped
 
     mock_sender.send.assert_called_once_with(expected)
+
+
+@pytest.mark.asyncio
+async def test_read_raw_package_with_extra_headers():
+    mock_receiver = AsyncMock(spec=BufferedByteReceiveStream)
+
+    # Mock headers: Content-Type followed by Content-Length
+    mock_receiver.receive_until.return_value = (
+        b"Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n"
+        b"Content-Length: 18\r\n"
+        b"\r\n"
+    )
+    # Mock body
+    body = {"test": "data"}
+    mock_receiver.receive_exactly.return_value = json.dumps(body).encode("utf-8")
+
+    result = await read_raw_package(mock_receiver)
+    assert result == body
+    mock_receiver.receive_until.assert_called_once_with(b"\r\n\r\n", max_bytes=65536)
+    mock_receiver.receive_exactly.assert_called_once_with(18)
+
+
+@pytest.mark.asyncio
+async def test_read_raw_package_with_extra_headers_reversed():
+    mock_receiver = AsyncMock(spec=BufferedByteReceiveStream)
+
+    # Mock headers: Content-Length followed by Content-Type
+    mock_receiver.receive_until.return_value = (
+        b"Content-Length: 18\r\n"
+        b"Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n"
+        b"\r\n"
+    )
+    # Mock body
+    body = {"test": "data"}
+    mock_receiver.receive_exactly.return_value = json.dumps(body).encode("utf-8")
+
+    result = await read_raw_package(mock_receiver)
+    assert result == body
+    mock_receiver.receive_until.assert_called_once_with(b"\r\n\r\n", max_bytes=65536)
+    mock_receiver.receive_exactly.assert_called_once_with(18)
